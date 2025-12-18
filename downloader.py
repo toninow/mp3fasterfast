@@ -279,15 +279,33 @@ class Downloader:
                         print("🔥 [DOWNLOADER] Sin conexión, saltando portada")
                         self.log("Sin conexión a internet - omitiendo descarga de portada")
 
-                    # Extraer información y guardar en BD
-                    print("🔥 [DOWNLOADER] Extrayendo info para BD...")
-                    info = self.extract_info(url)
-                    if info:
-                        print(f"🔥 [DOWNLOADER] Guardando en BD: {info.get('title', 'N/A')[:30]}...")
-                        self.db.add_download(info['title'], url, download_type, source_type)
+                    # Usar la información del video que ya tenemos para guardar en BD
+                    print("🔥 [DOWNLOADER] Guardando info en BD...")
+                    if video_info and isinstance(video_info, dict):
+                        title = video_info.get('title', 'Video sin título')
+                        print(f"🔥 [DOWNLOADER] Guardando en BD: {title[:30]}...")
+                        self.db.add_download(title, url, download_type, source_type)
                         print("🔥 [DOWNLOADER] Info guardada en BD")
                     else:
-                        print("🔥 [DOWNLOADER] No se pudo extraer info para BD")
+                        # Fallback: intentar extraer info básica
+                        print("🔥 [DOWNLOADER] Usando fallback para BD...")
+                        try:
+                            # Extraer solo lo mínimo necesario con timeout corto
+                            import subprocess
+                            cmd = [str(YT_DLP_EXE), '--no-warnings', '--no-download', '--print-json', '--ffmpeg-location', str(FFMPEG_EXE), url]
+                            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=15)
+                            if result.returncode == 0 and result.stdout.strip():
+                                import json
+                                info = json.loads(result.stdout.strip())
+                                title = info.get('title', 'Video sin título')
+                                print(f"🔥 [DOWNLOADER] Fallback guardado en BD: {title[:30]}...")
+                                self.db.add_download(title, url, download_type, source_type)
+                            else:
+                                print("🔥 [DOWNLOADER] Fallback falló, guardando con título básico...")
+                                self.db.add_download(f"Video {url.split('=')[-1][:10]}", url, download_type, source_type)
+                        except Exception as e:
+                            print(f"🔥 [DOWNLOADER] Error en fallback: {e}")
+                            self.db.add_download(f"Video {url.split('=')[-1][:10]}", url, download_type, source_type)
                     print("🔥 [DOWNLOADER] Método retornando True")
                     return True
                 else:
