@@ -120,12 +120,11 @@ class MP3FasterFast(ctk.CTk):
         # Configurar ventana básica
         print("Iniciando MP3 FasterFast...")
 
-        # Mensaje de bienvenida (después de configurar todo)
-        self.after(100, lambda: self.log_message("[START] MP3 FasterFast iniciado correctamente"))
-        self.after(100, lambda: self.log_message("💡 Pega tus URLs de YouTube para comenzar a descargar"))
+        # Mensaje de bienvenida rápido
+        self.after(50, lambda: self.log_message("[READY] Listo para descargar"))
 
-        # Iniciar procesamiento de cola de logs después de que la ventana esté lista
-        self.after(200, self.process_log_queue)
+        # Iniciar procesamiento de cola de logs
+        self.after(100, self.process_log_queue)
 
     def center_window(self):
         """Centrar ventana en pantalla"""
@@ -144,32 +143,11 @@ class MP3FasterFast(ctk.CTk):
         main_frame.pack(pady=10, padx=10, fill="both", expand=True)
         print("Frame principal creado")
 
-        # Header principal simplificado
-        header_frame = ctk.CTkFrame(main_frame)
-        header_frame.pack(pady=(15, 10), padx=20, fill="x")
-
-        # Título con ícono
-        title_container = ctk.CTkFrame(header_frame, fg_color="transparent")
-        title_container.pack(pady=10)
-
-        ctk.CTkLabel(title_container, text="[FAST]",
-                    font=("Arial", 18, "bold")).pack(side="left", padx=(0, 10))
-
-        title_text = ctk.CTkFrame(title_container, fg_color="transparent")
-        title_text.pack(side="left")
-
-        ctk.CTkLabel(title_text, text="MP3 FASTERFAST",
-                    font=("Arial", 20, "bold")).pack(anchor="w")
-        ctk.CTkLabel(title_text, text="Descargador Profesional de Música y Videos",
-                    font=("Arial", 10)).pack(anchor="w")
-
-        ctk.CTkLabel(title_container, text="[MUSIC]",
-                    font=("Arial", 18, "bold")).pack(side="right", padx=(10, 0))
 
         # Contenedor principal horizontal
         print("Creando contenedor principal...")
         main_container = ctk.CTkFrame(main_frame)
-        main_container.pack(pady=15, padx=20, fill="both", expand=True)
+        main_container.pack(pady=(20, 10), padx=20, fill="both", expand=True)
 
         # Panel izquierdo - Controles principales
         print("Creando panel izquierdo...")
@@ -261,10 +239,6 @@ class MP3FasterFast(ctk.CTk):
                                         font=("Arial", 9, "bold"))
         self.progress_text.pack(pady=(0, 10), padx=10)
 
-        # Estado actual
-        self.current_status = ctk.CTkLabel(progress_section, text="[LISTO] Sistema listo - Esperando acción",
-                                         font=("Arial", 10, "bold"))
-        self.current_status.pack(pady=(0, 10), padx=10)
 
         # Indicador de canción actual
         self.current_song_label = ctk.CTkLabel(progress_section,
@@ -929,8 +903,8 @@ class MP3FasterFast(ctk.CTk):
                     'quiet': True,
                     'no_warnings': True,
                     'extract_flat': False,
-                    'socket_timeout': 8,  # Timeout de 8 segundos
-                    'retries': 1
+                    'socket_timeout': 5,  # Timeout reducido a 5 segundos
+                    'retries': 0  # Sin reintentos para ser más rápido
                 }
 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -961,20 +935,20 @@ class MP3FasterFast(ctk.CTk):
         thread = threading.Thread(target=extract_info, daemon=True)
         thread.start()
 
-        # Esperar con timeout
+        # Esperar con timeout más corto para ser más rápido
         start_time = time.time()
-        while not result['completed'] and (time.time() - start_time) < 10:  # 10 segundos timeout
-            time.sleep(0.1)
+        while not result['completed'] and (time.time() - start_time) < 5:  # 5 segundos timeout
+            time.sleep(0.05)  # Chequear más frecuentemente
             if result['error']:
                 break
 
         if not result['completed']:
-            self.log_message("[ERROR] Timeout: No se pudo obtener información del video (10s)")
+            self.log_message("[INFO] Timeout rapido: Iniciando descarga sin metadata completa")
             # Intentar extraer al menos el ID del video de la URL para un título básico
             video_id = self.extract_video_id(url)
             fallback_title = f"Video {video_id}" if video_id else "Video sin título"
             return {
-                'title': f'[TIMEOUT] {fallback_title}',
+                'title': fallback_title,  # Sin [TIMEOUT] para ser más limpio
                 'thumbnail': None,
                 'duration': None,
                 'uploader': 'Desconocido'
