@@ -12,9 +12,64 @@ from metadata import MetadataEditor
 from scheduler import Scheduler
 from utils import ensure_directories, validate_dependencies, load_config, save_config, MP3_DIR, BASE_DIR
 
-# Configurar CustomTkinter
+# Configurar CustomTkinter con tema negro y verde neón
 ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
+
+# Tema personalizado negro y verde neón
+custom_theme = {
+    "CTk": {
+        "fg_color": ["#000000", "#000000"]  # Negro fondo
+    },
+    "CTkFrame": {
+        "fg_color": ["#0a0a0a", "#0a0a0a"],  # Negro más claro para frames
+        "border_color": ["#00ff00", "#00ff00"]  # Verde neón borde
+    },
+    "CTkButton": {
+        "fg_color": ["#00aa00", "#00ff00"],  # Verde neón
+        "hover_color": ["#00ff00", "#00aa00"],  # Verde neón hover
+        "border_color": ["#00ff00", "#00ff00"],  # Verde neón borde
+        "text_color": ["#000000", "#ffffff"],  # Negro/Blanco texto
+        "text_color_disabled": ["#666666", "#666666"]
+    },
+    "CTkLabel": {
+        "fg_color": ["transparent", "transparent"],
+        "text_color": ["#00ff00", "#00ff00"]  # Verde neón para texto
+    },
+    "CTkEntry": {
+        "fg_color": ["#1a1a1a", "#1a1a1a"],  # Negro grisáceo
+        "border_color": ["#00ff00", "#00ff00"],  # Verde neón borde
+        "text_color": ["#ffffff", "#ffffff"],  # Blanco texto
+        "placeholder_text_color": ["#666666", "#666666"]
+    },
+    "CTkTextbox": {
+        "fg_color": ["#1a1a1a", "#1a1a1a"],  # Negro grisáceo
+        "border_color": ["#00ff00", "#00ff00"],  # Verde neón borde
+        "text_color": ["#ffffff", "#ffffff"],  # Blanco texto
+        "scrollbar_button_color": ["#00ff00", "#00ff00"],  # Verde neón scrollbar
+        "scrollbar_button_hover_color": ["#00aa00", "#00aa00"]
+    },
+    "CTkProgressBar": {
+        "fg_color": ["#1a1a1a", "#1a1a1a"],  # Negro grisáceo fondo
+        "progress_color": ["#00ff00", "#00ff00"]  # Verde neón progreso
+    },
+    "CTkScrollableFrame": {
+        "fg_color": ["#0a0a0a", "#0a0a0a"],
+        "border_color": ["#00ff00", "#00ff00"]
+    },
+    "CTkScrollbar": {
+        "fg_color": ["transparent", "transparent"],
+        "button_color": ["#00ff00", "#00ff00"],
+        "button_hover_color": ["#00aa00", "#00aa00"]
+    }
+}
+
+# Aplicar tema personalizado
+for widget_type, colors in custom_theme.items():
+    if hasattr(ctk, f'set_default_color_theme_for_{widget_type.lower()}'):
+        getattr(ctk, f'set_default_color_theme_for_{widget_type.lower()}')(colors)
+
+# Tema general verde neón
+ctk.set_default_color_theme("green")
 
 class MP3FasterFast(ctk.CTk):
     def __init__(self):
@@ -88,21 +143,12 @@ class MP3FasterFast(ctk.CTk):
         # Protocolo de cierre
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # Detectar si estamos en entorno headless
-        try:
-            # Intentar obtener información de la pantalla
-            screen_width = self.winfo_screenwidth()
-            screen_height = self.winfo_screenheight()
-            print(f"Pantalla detectada: {screen_width}x{screen_height}")
-        except:
-            print("ADVERTENCIA: Entorno headless detectado")
-            # En entorno headless, cerrar automáticamente después de 3 segundos
-            self.after(3000, lambda: self.quit())
-            return
+        # Configurar ventana básica
+        print("Iniciando MP3 FasterFast...")
 
         # Mensaje de bienvenida (después de configurar todo)
-        self.after(100, lambda: self.log_message("MP3 FasterFast iniciado correctamente"))
-        self.after(100, lambda: self.log_message("Pega multiples URLs para descargar en lote"))
+        self.after(100, lambda: self.log_message("🚀 MP3 FasterFast iniciado correctamente"))
+        self.after(100, lambda: self.log_message("💡 Pega tus URLs de YouTube para comenzar a descargar"))
 
         # Iniciar procesamiento de cola de logs después de que la ventana esté lista
         self.after(200, self.process_log_queue)
@@ -122,96 +168,136 @@ class MP3FasterFast(ctk.CTk):
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(pady=10, padx=10, fill="both", expand=True)
 
-        # Título y logo
-        title_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        title_frame.pack(pady=15)
+        # Header principal con gradiente visual
+        header_frame = ctk.CTkFrame(main_frame, fg_color="#001100", border_width=2, border_color="#00ff00")
+        header_frame.pack(pady=(15, 10), padx=20, fill="x")
 
-        # Logo
+        # Título con ícono
+        title_container = ctk.CTkFrame(header_frame, fg_color="transparent")
+        title_container.pack(pady=10)
+
+        ctk.CTkLabel(title_container, text="🚀",
+                    font=("Arial", 24)).pack(side="left", padx=(0, 10))
+
+        title_text = ctk.CTkFrame(title_container, fg_color="transparent")
+        title_text.pack(side="left")
+
+        ctk.CTkLabel(title_text, text="MP3 FASTERFAST",
+                    font=("Arial", 20, "bold"), text_color="#00ff00").pack(anchor="w")
+        ctk.CTkLabel(title_text, text="Descargador Profesional de Música y Videos",
+                    font=("Arial", 10), text_color="#00aa00").pack(anchor="w")
+
+        ctk.CTkLabel(title_container, text="🎵",
+                    font=("Arial", 24)).pack(side="right", padx=(10, 0))
+
+        # Contenedor principal horizontal
+        main_container = ctk.CTkFrame(main_frame)
+        main_container.pack(pady=15, padx=20, fill="both", expand=True)
+
+        # Panel izquierdo - Controles principales
+        left_panel = ctk.CTkFrame(main_container, width=280, border_width=2, border_color="#00ff00")
+        left_panel.pack(side="left", fill="y", padx=(0, 15))
+
+        # Logo en el panel izquierdo
         try:
             logo_path = BASE_DIR / "fasterfast.png"
             if logo_path.exists():
-                # Cargar imagen para el logo
-                logo_photo = tk.PhotoImage(file=str(logo_path))
-                # Redimensionar manteniendo proporción
-                logo_photo = logo_photo.subsample(4, 4)  # Hacer 1/4 del tamaño
-                logo_label = tk.Label(title_frame, image=logo_photo, bg=self.cget("fg_color")[1] if isinstance(self.cget("fg_color"), list) else self.cget("fg_color"))
-                logo_label.image = logo_photo  # Mantener referencia
-                logo_label.pack(pady=(0, 10))
+                logo_image = ctk.CTkImage(Image.open(logo_path), size=(180, 180))
+                logo_label = ctk.CTkLabel(left_panel, image=logo_image, text="")
+                logo_label.pack(pady=(20, 15))
         except Exception as e:
             print(f"Error cargando logo: {str(e)}")
 
-        ctk.CTkLabel(title_frame, text="MP3 FasterFast",
-                    font=("Arial", 22, "bold")).pack()
-        ctk.CTkLabel(title_frame, text="Descargador de Música y Videos Portable",
-                    font=("Arial", 11), text_color="gray70").pack(pady=(5, 0))
+        # Sección de configuración
+        config_section = ctk.CTkFrame(left_panel, fg_color="#001100", border_width=1, border_color="#00aa00")
+        config_section.pack(fill="x", padx=15, pady=(0, 15))
 
-        # Panel de descarga
-        download_frame = ctk.CTkFrame(main_frame)
-        download_frame.pack(pady=15, padx=20, fill="x")
-
-        # Título del panel
-        ctk.CTkLabel(download_frame, text="Descargar Contenido",
-                    font=("Arial", 14, "bold")).pack(pady=10)
+        config_title = ctk.CTkLabel(config_section, text="⚙️ CONFIGURACIÓN",
+                                   font=("Arial", 12, "bold"), text_color="#00ff00")
+        config_title.pack(pady=(10, 5))
 
         # Tipo de descarga
-        type_frame = ctk.CTkFrame(download_frame, fg_color="transparent")
-        type_frame.pack(pady=5, fill="x")
+        type_label = ctk.CTkLabel(config_section, text="Formato de descarga:",
+                                font=("Arial", 10, "bold"), text_color="#00ff00")
+        type_label.pack(pady=(5, 3), anchor="w", padx=10)
 
-        ctk.CTkLabel(type_frame, text="Tipo de descarga:",
-                    font=("Arial", 11)).pack(side="left", padx=10)
-        self.download_type = ctk.CTkComboBox(type_frame,
-                                           values=["MP3 (Audio)", "Video (MP4)", "Playlist MP3", "Playlist MP4"],
-                                           state="readonly", width=150)
-        self.download_type.set("MP3 (Audio)")
-        self.download_type.pack(side="right", padx=10)
+        self.download_type = ctk.CTkComboBox(config_section,
+                                           values=["🎵 MP3 (Audio)", "🎬 Video (MP4)", "📂 Playlist MP3", "📂 Playlist MP4"],
+                                           state="readonly", width=220,
+                                           fg_color="#1a1a1a", border_color="#00ff00")
+        self.download_type.set("🎵 MP3 (Audio)")
+        self.download_type.pack(pady=(0, 15), padx=10)
 
-        # Sección de URLs
-        urls_section = ctk.CTkFrame(download_frame, fg_color="transparent")
-        urls_section.pack(pady=10, fill="x", padx=10)
+        # Sección de progreso
+        progress_section = ctk.CTkFrame(left_panel, fg_color="#001100", border_width=1, border_color="#00aa00")
+        progress_section.pack(fill="x", padx=15, pady=(0, 15))
 
-        # URL Individual
-        single_url_frame = ctk.CTkFrame(urls_section)
-        single_url_frame.pack(pady=(0, 10), fill="x")
+        progress_title = ctk.CTkLabel(progress_section, text="📊 PROGRESO",
+                                     font=("Arial", 12, "bold"), text_color="#00ff00")
+        progress_title.pack(pady=(10, 8))
 
-        ctk.CTkLabel(single_url_frame, text="URL Individual",
-                    font=("Arial", 12, "bold")).pack(pady=5)
+        # Barra de progreso
+        progress_label = ctk.CTkLabel(progress_section, text="Estado de descarga:",
+                                    font=("Arial", 10, "bold"), text_color="#00ff00")
+        progress_label.pack(pady=(0, 5), anchor="w", padx=10)
 
-        self.single_url_entry = ctk.CTkEntry(single_url_frame,
-                                           placeholder_text="Pega una URL de YouTube aquí...",
-                                           height=35)
-        self.single_url_entry.pack(fill="x", padx=10, pady=(0, 5))
+        self.progress_bar = ctk.CTkProgressBar(progress_section, width=220, height=18)
+        self.progress_bar.pack(pady=(0, 8), padx=10)
+        self.progress_bar.set(0)
 
-        single_btn_frame = ctk.CTkFrame(single_url_frame, fg_color="transparent")
-        single_btn_frame.pack(fill="x", padx=10, pady=5)
+        self.progress_text = ctk.CTkLabel(progress_section, text="Esperando URLs...",
+                                        font=("Arial", 9, "bold"), text_color="#00aa00")
+        self.progress_text.pack(pady=(0, 10), padx=10)
 
-        self.download_single_btn = ctk.CTkButton(single_btn_frame, text="Descargar Esta URL",
-                                               command=self.download_single_url, height=30)
-        self.download_single_btn.pack(side="left")
+        # Estado actual
+        self.current_status = ctk.CTkLabel(progress_section, text="🔴 Sistema listo - Esperando acción",
+                                         font=("Arial", 10, "bold"),
+                                         text_color="#666666")
+        self.current_status.pack(pady=(0, 10), padx=10)
 
-        ctk.CTkButton(single_btn_frame, text="Limpiar", width=80, height=30,
-                     command=lambda: self.single_url_entry.delete(0, "end")).pack(side="right")
+        # Panel derecho - URLs y descargas
+        right_panel = ctk.CTkFrame(main_container, border_width=2, border_color="#00ff00")
+        right_panel.pack(side="right", fill="both", expand=True)
 
-        # Separador visual
-        separator = ctk.CTkFrame(urls_section, height=2, fg_color="gray70")
-        separator.pack(fill="x", pady=10)
+        # Panel superior - URLs
+        urls_panel = ctk.CTkFrame(right_panel, fg_color="#001100", border_width=1, border_color="#00aa00")
+        urls_panel.pack(fill="x", pady=(0, 15), padx=10)
 
-        # URLs Múltiples
-        multiple_urls_frame = ctk.CTkFrame(urls_section)
-        multiple_urls_frame.pack(fill="x")
+        # Header URLs con ícono
+        urls_header_frame = ctk.CTkFrame(urls_panel, fg_color="transparent")
+        urls_header_frame.pack(fill="x", pady=10, padx=15)
 
-        # Header con contador
-        multiple_header = ctk.CTkFrame(multiple_urls_frame, fg_color="transparent")
-        multiple_header.pack(fill="x", padx=10, pady=5)
+        ctk.CTkLabel(urls_header_frame, text="🔗",
+                    font=("Arial", 18)).pack(side="left")
 
-        ctk.CTkLabel(multiple_header, text="URLs Multiples (Descarga Masiva)",
-                    font=("Arial", 12, "bold")).pack(side="left")
-        self.url_counter = ctk.CTkLabel(multiple_header, text="0 URLs detectadas",
-                                       font=("Arial", 10), text_color="gray70")
+        urls_title = ctk.CTkLabel(urls_header_frame, text="ENTRADA DE URLs",
+                                 font=("Arial", 16, "bold"), text_color="#00ff00")
+        urls_title.pack(side="left", padx=(10, 0))
+
+        self.url_counter = ctk.CTkLabel(urls_header_frame, text="0 URLs",
+                                       font=("Arial", 12, "bold"), text_color="#00aa00")
         self.url_counter.pack(side="right")
 
-        # Área de texto para URLs múltiples
-        self.urls_textbox = ctk.CTkTextbox(multiple_urls_frame, height=120)
-        self.urls_textbox.pack(fill="x", padx=10, pady=5)
+        # Área de URLs múltiples (ahora es la única)
+        urls_frame = ctk.CTkFrame(urls_panel, fg_color="#0a0a0a")
+        urls_frame.pack(fill="x", padx=15, pady=(0, 15))
+
+        # Instrucciones
+        instructions = ctk.CTkLabel(urls_frame,
+                                   text="Pega tus enlaces de YouTube aquí (uno por línea):\n\n" +
+                                        "• Videos individuales\n" +
+                                        "• Playlists completas\n" +
+                                        "• Canales enteros\n\n" +
+                                        "Ejemplos:\n" +
+                                        "https://www.youtube.com/watch?v=VIDEO_ID\n" +
+                                        "https://www.youtube.com/playlist?list=PLAYLIST_ID",
+                                   font=("Arial", 10), text_color="#00aa00",
+                                   justify="left")
+        instructions.pack(pady=10, padx=10, anchor="w")
+
+        # Área de texto para URLs
+        self.urls_textbox = ctk.CTkTextbox(urls_frame, height=120)
+        self.urls_textbox.pack(fill="x", padx=10, pady=(0, 10))
         self.urls_textbox.bind("<KeyRelease>", self.update_url_counter)
         self.urls_textbox.bind("<FocusIn>", self.clear_placeholder)
         self.urls_textbox.bind("<Button-1>", self.clear_placeholder)
@@ -220,58 +306,109 @@ class MP3FasterFast(ctk.CTk):
         self.placeholder_active = True
         self.set_placeholder_text()
 
-        # Botones de acción
-        multiple_btn_frame = ctk.CTkFrame(multiple_urls_frame, fg_color="transparent")
-        multiple_btn_frame.pack(fill="x", padx=10, pady=5)
+        # Área de texto para URLs
+        self.urls_textbox = ctk.CTkTextbox(urls_frame, height=140, border_width=2, border_color="#00aa00")
+        self.urls_textbox.pack(fill="x", padx=10, pady=(0, 15))
+        self.urls_textbox.bind("<KeyRelease>", self.update_url_counter)
+        self.urls_textbox.bind("<FocusIn>", self.clear_placeholder)
+        self.urls_textbox.bind("<Button-1>", self.clear_placeholder)
 
-        self.download_btn = ctk.CTkButton(multiple_btn_frame, text="Iniciar Descargas Masivas",
-                                         command=self.start_multiple_downloads, height=35)
-        self.download_btn.pack(side="left", padx=(0, 10))
+        # Placeholder inicial
+        self.placeholder_active = True
+        self.set_placeholder_text()
 
-        self.clear_btn = ctk.CTkButton(multiple_btn_frame, text="Limpiar Todo", width=100, height=35,
-                                      command=self.clear_urls, fg_color="transparent", border_width=2)
-        self.clear_btn.pack(side="right")
+        # Información de ayuda
+        help_frame = ctk.CTkFrame(urls_frame, fg_color="#001100", border_width=1, border_color="#00aa00")
+        help_frame.pack(fill="x", padx=10, pady=(0, 15))
 
-        # Botones de acción
-        buttons_frame = ctk.CTkFrame(download_frame, fg_color="transparent")
-        buttons_frame.pack(pady=15)
+        help_left = ctk.CTkFrame(help_frame, fg_color="transparent")
+        help_left.pack(side="left", fill="x", expand=True, padx=10, pady=5)
 
-        self.download_btn = ctk.CTkButton(buttons_frame, text="Iniciar Descargas",
-                                         command=self.start_multiple_downloads,
-                                         height=40, font=("Arial", 12, "bold"))
-        self.download_btn.pack(side="left", padx=10)
+        ctk.CTkLabel(help_left, text="💡 Múltiples URLs separadas por líneas",
+                    font=("Arial", 9), text_color="#00aa00").pack(anchor="w")
 
-        self.clear_btn = ctk.CTkButton(buttons_frame, text="Limpiar URLs",
-                                      command=self.clear_urls, fg_color="transparent",
-                                      border_width=2, height=40)
-        self.clear_btn.pack(side="left", padx=10)
+        help_right = ctk.CTkFrame(help_frame, fg_color="transparent")
+        help_right.pack(side="right", fill="x", expand=True, padx=10, pady=5)
+
+        ctk.CTkLabel(help_right, text="📊 Descarga secuencial automática",
+                    font=("Arial", 9), text_color="#00aa00").pack(anchor="e")
+
+        # Botones de acción con mejor diseño
+        btns_frame = ctk.CTkFrame(urls_frame, fg_color="transparent")
+        btns_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Botón principal de descarga
+        self.download_btn = ctk.CTkButton(btns_frame, text="🚀 INICIAR DESCARGAS",
+                                         command=self.start_multiple_downloads, height=45,
+                                         font=("Arial", 12, "bold"),
+                                         fg_color="#00ff00", hover_color="#00aa00",
+                                         text_color="#000000")
+        self.download_btn.pack(fill="x", pady=(0, 10))
+
+        # Botones secundarios
+        secondary_btns = ctk.CTkFrame(btns_frame, fg_color="transparent")
+        secondary_btns.pack(fill="x")
+
+        self.clear_btn = ctk.CTkButton(secondary_btns, text="🗑️ LIMPIAR",
+                                      command=self.clear_urls, height=35,
+                                      fg_color="#1a1a1a", border_width=2, border_color="#00aa00",
+                                      hover_color="#00aa00")
+        self.clear_btn.pack(side="left", fill="x", expand=True, padx=(0, 5))
+
+        self.paste_btn = ctk.CTkButton(secondary_btns, text="📋 PEGAR",
+                                      command=self.paste_urls, height=35,
+                                      fg_color="#1a1a1a", border_width=2, border_color="#00aa00",
+                                      hover_color="#00aa00")
+        self.paste_btn.pack(side="right", fill="x", expand=True, padx=(5, 0))
+
+        # Panel inferior - Log y Historial
+        bottom_panel = ctk.CTkFrame(main_frame, fg_color="#001100", border_width=1, border_color="#00aa00")
+        bottom_panel.pack(pady=(10, 20), padx=20, fill="both", expand=True)
 
         # Área de log
-        log_frame = ctk.CTkFrame(main_frame)
-        log_frame.pack(pady=10, padx=20, fill="both", expand=True)
+        log_section = ctk.CTkFrame(bottom_panel, fg_color="#0a0a0a")
+        log_section.pack(fill="both", expand=True, padx=10, pady=(10, 5))
 
-        log_header = ctk.CTkFrame(log_frame, fg_color="transparent")
-        log_header.pack(fill="x", padx=10, pady=5)
+        log_header = ctk.CTkFrame(log_section, fg_color="transparent")
+        log_header.pack(fill="x", padx=10, pady=8)
 
-        ctk.CTkLabel(log_header, text="Registro de actividad",
-                    font=("Arial", 12, "bold")).pack(side="left")
-        ctk.CTkButton(log_header, text="Limpiar", width=80, height=25,
-                     command=self.clear_log).pack(side="right")
+        ctk.CTkLabel(log_header, text="📋",
+                    font=("Arial", 14)).pack(side="left")
 
-        self.log_text = ctk.CTkTextbox(log_frame, height=120, wrap="word")
-        self.log_text.pack(padx=10, pady=5, fill="both", expand=True)
+        ctk.CTkLabel(log_header, text="LOG DE ACTIVIDAD",
+                    font=("Arial", 14, "bold"), text_color="#00ff00").pack(side="left", padx=(8, 0))
+
+        ctk.CTkButton(log_header, text="🗑️ LIMPIAR LOG", width=120, height=30,
+                     command=self.clear_log, fg_color="#1a1a1a", border_width=1,
+                     border_color="#00aa00", hover_color="#00aa00").pack(side="right")
+
+        self.log_text = ctk.CTkTextbox(log_section, height=100, wrap="word",
+                                      border_width=1, border_color="#00aa00",
+                                      fg_color="#000000")
+        self.log_text.pack(padx=10, pady=(0, 10), fill="both", expand=True)
         self.log_text.configure(state="disabled")  # Solo lectura
 
         # Historial
-        history_frame = ctk.CTkFrame(main_frame)
-        history_frame.pack(pady=10, padx=20, fill="both", expand=True)
+        history_section = ctk.CTkFrame(bottom_panel, fg_color="#0a0a0a")
+        history_section.pack(fill="both", expand=True, padx=10, pady=(5, 10))
 
         # Header del historial
-        history_header = ctk.CTkFrame(history_frame, fg_color="transparent")
-        history_header.pack(fill="x", padx=10, pady=5)
+        history_header = ctk.CTkFrame(history_section, fg_color="transparent")
+        history_header.pack(fill="x", padx=10, pady=8)
 
-        ctk.CTkLabel(history_header, text="Historial de descargas",
-                    font=("Arial", 12, "bold")).pack(side="left")
+        ctk.CTkLabel(history_header, text="📚",
+                    font=("Arial", 14)).pack(side="left")
+
+        ctk.CTkLabel(history_header, text="HISTORIAL DE DESCARGAS",
+                    font=("Arial", 14, "bold"), text_color="#00ff00").pack(side="left", padx=(8, 0))
+
+        self.history_count = ctk.CTkLabel(history_header, text="0 archivos",
+                                         font=("Arial", 11), text_color="#00aa00")
+        self.history_count.pack(side="right", padx=(0, 10))
+
+        ctk.CTkButton(history_header, text="🔄 ACTUALIZAR", width=120, height=30,
+                     command=self.load_history, fg_color="#1a1a1a", border_width=1,
+                     border_color="#00aa00", hover_color="#00aa00").pack(side="right", padx=(0, 10))
         ctk.CTkButton(history_header, text="Actualizar", width=90, height=25,
                      command=self.load_history).pack(side="right", padx=(5, 0))
         self.history_count = ctk.CTkLabel(history_header, text="0 elementos",
@@ -385,6 +522,16 @@ class MP3FasterFast(ctk.CTk):
             if not confirm:
                 return
 
+        # Inicializar progreso
+        self.total_downloads = len(valid_urls)
+        self.completed_downloads = 0
+        self.failed_downloads = 0
+        self.current_download = 0
+
+        self.progress_bar.set(0)
+        self.progress_text.configure(text="Iniciando...")
+        self.current_status.configure(text="Estado: Procesando", text_color="orange")
+
         # Mapear tipos de descarga
         download_type_map = {
             "MP3 (Audio)": "mp3",
@@ -399,48 +546,68 @@ class MP3FasterFast(ctk.CTk):
         source_type = "playlist" if "Playlist" in download_type else "url"
 
         # Deshabilitar botón
-        self.download_btn.configure(state="disabled", text="⏳ Procesando...")
+        self.download_btn.configure(state="disabled", text="⏳ Descargando...")
 
         # Ejecutar en hilo
         threading.Thread(target=self.multiple_downloads_worker,
                         args=(valid_urls, download_type, source_type), daemon=True).start()
 
     def multiple_downloads_worker(self, urls, download_type, source_type):
-        """Worker para múltiples descargas"""
+        """Worker para múltiples descargas con progreso en tiempo real"""
         try:
             downloader = Downloader(self.log_message)
-            completed = 0
-            failed = 0
 
             self.log_message(f"Iniciando descarga de {len(urls)} elementos...")
 
             for i, url in enumerate(urls, 1):
-                self.log_message(f"Descargando {i}/{len(urls)}: {url[:50]}...")
+                self.current_download = i
+
+                # Actualizar progreso
+                progress = (i - 1) / len(urls)
+                self.after(0, lambda p=progress: self.progress_bar.set(p))
+                self.after(0, lambda: self.progress_text.configure(text=f"{i}/{len(urls)} completado"))
+                self.after(0, lambda u=url: self.current_status.configure(text=f"📥 Descargando: {u[:35]}...", text_color="blue"))
+
+                self.log_message(f"📥 Iniciando descarga {i}/{len(urls)}: {url[:50]}...")
+
                 try:
                     success = downloader.download_video(url, download_type, source_type)
                     if success:
-                        completed += 1
-                        self.log_message(f"Completado: {url[:50]}...")
+                        self.completed_downloads += 1
+                        self.log_message(f"✅ ¡Completado! {url[:50]}...")
                     else:
-                        failed += 1
-                        self.log_message(f"Error: {url[:50]}...")
+                        self.failed_downloads += 1
+                        self.log_message(f"❌ Error en descarga: {url[:50]}...")
                 except Exception as e:
-                    failed += 1
-                    self.log_message(f"Error critico en {url[:50]}...: {str(e)}")
+                    self.failed_downloads += 1
+                    self.log_message(f"💥 Error crítico: {url[:50]} - {str(e)}")
+
+                # Pequeña pausa para actualizar UI
+                import time
+                time.sleep(0.1)
 
             downloader.close()
 
             # Recargar historial
             self.after(0, self.load_history)
 
+            # Actualizar progreso final
+            self.after(0, lambda: self.progress_bar.set(1.0))
+            self.after(0, lambda: self.progress_text.configure(text="Completado"))
+            self.after(0, lambda: self.current_status.configure(text="Estado: Finalizado", text_color="green"))
+
             # Resumen final
-            self.log_message(f"Proceso terminado: {completed} exitosas, {failed} fallidas")
+            if self.failed_downloads == 0:
+                self.log_message(f"🎉 ¡PROCESO COMPLETADO! Todas las {self.completed_downloads} descargas fueron exitosas")
+            else:
+                self.log_message(f"⚠️ Proceso terminado: {self.completed_downloads} exitosas, {self.failed_downloads} fallidas")
 
         except Exception as e:
-            self.log_message(f"Error general: {str(e)}")
+            self.after(0, lambda: self.current_status.configure(text="Estado: Error", text_color="red"))
+            self.log_message(f"💥 Error general: {str(e)}")
         finally:
             # Rehabilitar botón
-            self.after(0, lambda: self.download_btn.configure(state="normal", text="Iniciar Descargas"))
+            self.after(0, lambda: self.download_btn.configure(state="normal", text="🚀 Iniciar Descargas"))
 
     def set_placeholder_text(self):
         """Establecer texto placeholder en el área de URLs múltiples"""
@@ -464,10 +631,38 @@ class MP3FasterFast(ctk.CTk):
         self.update_url_counter()
         self.log_message("URLs limpiadas")
 
+    def paste_urls(self):
+        """Pegar URLs desde el portapapeles"""
+        try:
+            import pyperclip
+            clipboard_content = pyperclip.paste()
+            if self.placeholder_active:
+                self.clear_placeholder()
+            current_content = self.urls_textbox.get("0.0", "end").strip()
+            if current_content and not current_content.endswith("\n"):
+                self.urls_textbox.insert("end", "\n")
+            self.urls_textbox.insert("end", clipboard_content)
+            self.update_url_counter()
+        except ImportError:
+            # Fallback si no hay pyperclip
+            try:
+                clipboard_content = self.clipboard_get()
+                if self.placeholder_active:
+                    self.clear_placeholder()
+                current_content = self.urls_textbox.get("0.0", "end").strip()
+                if current_content and not current_content.endswith("\n"):
+                    self.urls_textbox.insert("end", "\n")
+                self.urls_textbox.insert("end", clipboard_content)
+                self.update_url_counter()
+            except:
+                self.log_message("❌ Error accediendo al portapapeles")
+        except Exception as e:
+            self.log_message(f"❌ Error pegando URLs: {str(e)}")
+
     def update_url_counter(self, event=None):
         """Actualizar contador de URLs en tiempo real"""
         if self.placeholder_active:
-            self.url_counter.configure(text="0 URLs detectadas")
+            self.url_counter.configure(text="0 URLs")
             return
 
         urls_text = self.urls_textbox.get("0.0", "end").strip()
@@ -478,62 +673,9 @@ class MP3FasterFast(ctk.CTk):
             valid_urls = [url for url in lines if 'youtube.com' in url or 'youtu.be' in url]
             count = len(valid_urls)
 
-            if count == 0:
-                self.url_counter.configure(text="0 URLs detectadas")
-            elif count == 1:
-                self.url_counter.configure(text="1 URL detectada")
-            else:
-                self.url_counter.configure(text=f"{count} URLs detectadas")
+            self.url_counter.configure(text=f"{count} URLs")
         else:
-            self.url_counter.configure(text="0 URLs detectadas")
-
-    def download_single_url(self):
-        """Descargar URL individual"""
-        url = self.single_url_entry.get().strip()
-        if not url:
-            messagebox.showwarning("Advertencia", "Ingresa una URL para descargar")
-            return
-
-        # Mapear tipos de descarga
-        download_type_map = {
-            "MP3 (Audio)": "mp3",
-            "Video (MP4)": "video_mp4",
-            "Playlist MP3": "playlist_mp3",
-            "Playlist MP4": "playlist_mp4"
-        }
-
-        download_type = download_type_map[self.download_type.get()]
-
-        # Determinar tipo de fuente
-        source_type = "playlist" if "Playlist" in self.download_type.get() else "url"
-
-        # Deshabilitar botón
-        self.download_single_btn.configure(state="disabled", text="Descargando...")
-
-        # Ejecutar en hilo
-        threading.Thread(target=self.download_single_worker,
-                        args=([url], download_type, source_type), daemon=True).start()
-
-    def download_single_worker(self, urls, download_type, source_type):
-        """Worker para descarga individual"""
-        try:
-            downloader = Downloader(self.log_message)
-            success = downloader.download_video(urls[0], download_type, source_type)
-            downloader.close()
-
-            if success:
-                self.log_message("Descarga completada exitosamente")
-                # Recargar historial
-                self.after(0, self.load_history)
-            else:
-                self.log_message("Error en la descarga")
-
-        except Exception as e:
-            self.log_message(f"Error: {str(e)}")
-        finally:
-            # Rehabilitar botón
-            self.after(0, lambda: self.download_single_btn.configure(state="normal", text="Descargar Esta URL"))
-
+            self.url_counter.configure(text="0 URLs")
 
     def load_history(self):
         """Cargar historial de descargas"""

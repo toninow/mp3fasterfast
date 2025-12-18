@@ -1,103 +1,71 @@
 #!/usr/bin/env python3
 """
-Versión minimalista de MP3 FasterFast para debugging
+Versión mínima de MP3 FasterFast para pruebas
 """
 
-import customtkinter as ctk
-import tkinter as tk
-from tkinter import ttk, messagebox
 import sys
 import os
 
-# Agregar el directorio actual al path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Configurar CustomTkinter
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
-
-class MP3FasterFastMinimal(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-
-        print("🏗️ Inicializando aplicación minimalista...")
-
-        self.title("MP3 FasterFast - Minimal")
-        self.geometry("600x400")
-        self.resizable(False, False)
-
-        print("📐 Configurando geometría...")
-
-        # Título
-        title_label = ctk.CTkLabel(self, text="🎵 MP3 FasterFast", font=("Arial", 20, "bold"))
-        title_label.pack(pady=20)
-
-        print("📝 Agregando título...")
-
-        # Área de URLs
-        url_frame = ctk.CTkFrame(self)
-        url_frame.pack(pady=10, padx=20, fill="x")
-
-        ctk.CTkLabel(url_frame, text="URLs a descargar:").pack(anchor="w", padx=10, pady=5)
-
-        self.url_text = ctk.CTkTextbox(url_frame, height=80)
-        self.url_text.pack(fill="x", padx=10, pady=5)
-        self.url_text.insert("0.0", "Pega URLs aquí...\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
-
-        print("📝 Agregando área de texto...")
-
-        # Botón
-        self.download_btn = ctk.CTkButton(self, text="🚀 Probar", command=self.test_action)
-        self.download_btn.pack(pady=20)
-
-        print("🔘 Agregando botón...")
-
-        # Área de log
-        log_frame = ctk.CTkFrame(self)
-        log_frame.pack(pady=10, padx=20, fill="both", expand=True)
-
-        ctk.CTkLabel(log_frame, text="Log:").pack(anchor="w", padx=10, pady=5)
-
-        self.log_text = ctk.CTkTextbox(log_frame, height=80)
-        self.log_text.pack(fill="both", padx=10, pady=5, expand=True)
-
-        print("📋 Agregando área de log...")
-
-        # Protocolo de cierre
-        self.protocol("WM_DELETE_WINDOW", self.on_closing)
-
-        print("✅ Inicialización completada")
-
-        # Mensaje inicial
-        self.log("🎵 Aplicación minimalista iniciada")
-
-    def log(self, message):
-        """Agregar mensaje al log"""
-        self.log_text.insert("end", f"{message}\n")
-        self.log_text.see("end")
-        print(f"📝 LOG: {message}")
-
-    def test_action(self):
-        """Acción de prueba"""
-        self.log("🔘 Botón presionado")
-        urls = self.url_text.get("0.0", "end").strip()
-        self.log(f"📄 URLs encontradas: {len(urls.split())} líneas")
-        self.log("✅ Test completado")
-
-    def on_closing(self):
-        """Manejar cierre"""
-        print("👋 Cerrando aplicación...")
-        self.destroy()
-
-if __name__ == "__main__":
+if sys.platform.startswith('win'):
     try:
-        print("🚀 Iniciando aplicación minimalista...")
-        app = MP3FasterFastMinimal()
-        print("✅ Aplicación creada, iniciando mainloop...")
-        app.mainloop()
-        print("👋 Aplicación cerrada normalmente")
-    except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        input("Presiona Enter para salir...")
+        sys.stdout.reconfigure(encoding='utf-8')
+    except:
+        pass
+
+print("Starting minimal MP3 FasterFast...")
+
+try:
+    import tkinter as tk
+    print("Tkinter OK")
+except ImportError as e:
+    print(f"Tkinter error: {e}")
+    sys.exit(1)
+
+try:
+    import customtkinter as ctk
+    print("CustomTkinter OK")
+except ImportError as e:
+    print(f"CustomTkinter error: {e}")
+    sys.exit(1)
+
+try:
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("green")
+    print("Theme OK")
+except Exception as e:
+    print(f"Theme error: {e}")
+
+try:
+    root = ctk.CTk()
+    root.title("MP3 FasterFast - Minimal")
+    root.geometry("500x300")
+    print("Window created")
+except Exception as e:
+    print(f"Window error: {e}")
+    sys.exit(1)
+
+# Simple UI
+try:
+    title = ctk.CTkLabel(root, text="MP3 FASTERFAST", font=("Arial", 18, "bold"))
+    title.pack(pady=20)
+
+    status = ctk.CTkLabel(root, text="Aplicación funcionando!", font=("Arial", 12))
+    status.pack(pady=10)
+
+    # Simple text area
+    text_area = ctk.CTkTextbox(root, height=80)
+    text_area.pack(pady=10, padx=20, fill="x")
+    text_area.insert("0.0", "Pega tus URLs aquí...")
+
+    # Button
+    btn = ctk.CTkButton(root, text="🚀 INICIAR", command=lambda: print("Button clicked"))
+    btn.pack(pady=10)
+
+    print("UI created successfully")
+except Exception as e:
+    print(f"UI error: {e}")
+
+print("Starting mainloop... (will close in 5 seconds)")
+root.after(5000, root.quit)
+root.mainloop()
+print("Mainloop finished successfully!")
