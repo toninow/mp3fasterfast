@@ -12,6 +12,34 @@ Set-Location $scriptDir
 Write-Host "Directorio: $scriptDir" -ForegroundColor Gray
 Write-Host ""
 
+# Verificar e instalar dependencias
+Write-Host "Verificando dependencias de Python..." -ForegroundColor Yellow
+
+try {
+    & py -c "import customtkinter, mutagen, PIL" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Instalando dependencias faltantes..." -ForegroundColor Yellow
+        & py -m pip install customtkinter mutagen Pillow --quiet
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR: No se pudieron instalar las dependencias" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "Solucion: Ejecuta como administrador:" -ForegroundColor White
+            Write-Host "py -m pip install customtkinter mutagen Pillow" -ForegroundColor White
+            Write-Host ""
+            Read-Host "Presiona Enter para salir"
+            exit 1
+        }
+        Write-Host "Dependencias instaladas correctamente." -ForegroundColor Green
+        Write-Host ""
+    }
+}
+catch {
+    Write-Host "ERROR: Problema verificando dependencias" -ForegroundColor Red
+    Write-Host ""
+    Read-Host "Presiona Enter para salir"
+    exit 1
+}
+
 # Función para probar comando
 function Test-Command {
     param($command)

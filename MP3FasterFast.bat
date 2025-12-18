@@ -7,6 +7,26 @@ echo.
 REM Cambiar al directorio del script
 cd /d "%~dp0"
 
+REM Verificar dependencias de Python
+echo Verificando dependencias de Python...
+
+py -c "import customtkinter, mutagen" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Instalando dependencias faltantes...
+    py -m pip install customtkinter mutagen Pillow --quiet
+    if %errorlevel% neq 0 (
+        echo ERROR: No se pudieron instalar las dependencias
+        echo.
+        echo Solucion: Ejecuta como administrador:
+        echo py -m pip install customtkinter mutagen Pillow
+        echo.
+        pause
+        goto :eof
+    )
+    echo Dependencias instaladas correctamente.
+    echo.
+)
+
 REM Verificar si Python está disponible
 python --version >nul 2>&1
 if %errorlevel% equ 0 (
