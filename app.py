@@ -948,8 +948,8 @@ class MP3FasterFast(ctk.CTk):
                     'quiet': True,
                     'no_warnings': False,  # Mostrar warnings para debug
                     'extract_flat': False,
-                    'socket_timeout': 15,  # Timeout aumentado a 15 segundos
-                    'retries': 2  # 2 reintentos
+                    'socket_timeout': 25,  # Timeout aumentado a 25 segundos
+                    'retries': 3  # 3 reintentos
                 }
 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -980,9 +980,9 @@ class MP3FasterFast(ctk.CTk):
         thread = threading.Thread(target=extract_info, daemon=True)
         thread.start()
 
-        # Esperar con timeout
+        # Esperar con timeout más generoso
         start_time = time.time()
-        while not result['completed'] and (time.time() - start_time) < 20:  # 20 segundos timeout
+        while not result['completed'] and (time.time() - start_time) < 30:  # 30 segundos timeout
             time.sleep(0.1)  # Chequear cada 100ms
             if result['error']:
                 self.log_message(f"[DEBUG] Error detectado en thread: {result['error']}")

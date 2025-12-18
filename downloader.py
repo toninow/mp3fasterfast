@@ -179,7 +179,7 @@ class Downloader:
                 url
             ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30)
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=45)
 
             if result.returncode == 0:
                 # Si es playlist, yt-dlp devuelve múltiples JSON
@@ -246,7 +246,7 @@ class Downloader:
             print(f"🔥 [DOWNLOADER] Ejecutando subprocess.run con timeout...")
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True,
-                                      encoding='utf-8', errors='replace', timeout=60)
+                                      encoding='utf-8', errors='replace', timeout=90)
                 print(f"🔥 [DOWNLOADER] Subprocess completado, código: {result.returncode}")
 
                 # Log output
