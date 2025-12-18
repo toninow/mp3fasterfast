@@ -267,13 +267,13 @@ class Downloader:
                     print("🔥 [DOWNLOADER] Descarga exitosa, procesando portada...")
                     self.log("Descarga completada exitosamente")
 
-                # Descargar y aplicar portada si hay conexión a internet
-                if self.check_internet_connection():
-                    print("🔥 [DOWNLOADER] Conexión OK, descargando portada...")
-                    self.log("Conexión a internet detectada - descargando portada...")
-                    # Pasar la info del video que ya tenemos en lugar de volver a extraerla
-                    self.apply_thumbnail_to_file(url, download_path, download_type, video_info)
-                    print("🔥 [DOWNLOADER] Portada procesada")
+                    # Descargar y aplicar portada si hay conexión a internet
+                    if self.check_internet_connection():
+                        print("🔥 [DOWNLOADER] Conexión OK, descargando portada...")
+                        self.log("Conexión a internet detectada - descargando portada...")
+                        # Pasar la info del video que ya tenemos en lugar de volver a extraerla
+                        self.apply_thumbnail_to_file(url, download_path, download_type, video_info)
+                        print("🔥 [DOWNLOADER] Portada procesada")
                     else:
                         print("🔥 [DOWNLOADER] Sin conexión, saltando portada")
                         self.log("Sin conexión a internet - omitiendo descarga de portada")
