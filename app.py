@@ -26,31 +26,57 @@ class MP3FasterFast(ctk.CTk):
         self.log_queue = queue.Queue()
 
         # Centrar ventana
+        print("Centrando ventana...")
         self.center_window()
+        print("Ventana centrada")
 
         # Inicializar componentes
         self.db = Database()
 
         # Validar dependencias
+        print("Validando dependencias...")
         missing_deps = validate_dependencies()
         if missing_deps:
-            messagebox.showerror("Dependencias faltantes",
-                               f"Faltan los siguientes archivos en la carpeta del programa:\n{chr(10).join(missing_deps)}")
+            error_msg = f"Faltan los siguientes archivos en la carpeta del programa:\n{chr(10).join(missing_deps)}"
+            print(f"ERROR: {error_msg}")
+            try:
+                messagebox.showerror("Dependencias faltantes", error_msg)
+            except:
+                print("No se pudo mostrar messagebox (entorno sin GUI)")
             self.destroy()
             return
+        print("Dependencias validadas")
 
         # Crear directorios
+        print("Creando directorios...")
         ensure_directories()
+        print("Directorios creados")
 
-        # Crear interfaz
-        self.create_widgets()
+        # Crear interfaz (con manejo de errores)
+        try:
+            self.create_widgets()
+            print("Widgets creados")
+        except Exception as e:
+            print(f"Error creando widgets: {str(e)}")
+            raise
 
-        # Cargar historial
-        self.load_history()
+        # Cargar historial (con manejo de errores)
+        try:
+            self.load_history()
+            print("Historial cargado")
+        except Exception as e:
+            print(f"Error cargando historial: {str(e)}")
+            # Continuar sin historial si hay error
 
-        # Mensaje de bienvenida
-        self.log_message("🎵 MP3 FasterFast iniciado correctamente")
-        self.log_message("💡 Pega múltiples URLs para descargar en lote")
+        # Protocolo de cierre
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # Mensaje de bienvenida (después de configurar todo)
+        self.after(100, lambda: self.log_message("🎵 MP3 FasterFast iniciado correctamente"))
+        self.after(100, lambda: self.log_message("💡 Pega múltiples URLs para descargar en lote"))
+
+        # Iniciar procesamiento de cola de logs después de que la ventana esté lista
+        self.after(200, self.process_log_queue)
 
     def center_window(self):
         """Centrar ventana en pantalla"""
@@ -211,17 +237,29 @@ class MP3FasterFast(ctk.CTk):
     def process_log_queue(self):
         """Procesar mensajes de la cola de logs"""
         try:
-            while True:
-                message = self.log_queue.get_nowait()
-                self.log_text.configure(state="normal")
-                self.log_text.insert("end", f"[{datetime.now().strftime('%H:%M:%S')}] {message}\n")
-                self.log_text.configure(state="disabled")
-                self.log_text.see("end")
-        except queue.Empty:
-            pass
+            # Procesar máximo 10 mensajes por llamada para no bloquear la UI
+            for _ in range(10):
+                try:
+                    message = self.log_queue.get_nowait()
+                    self.log_text.configure(state="normal")
+                    self.log_text.insert("end", f"[{datetime.now().strftime('%H:%M:%S')}] {message}\n")
+                    self.log_text.configure(state="disabled")
+                    self.log_text.see("end")
+                except queue.Empty:
+                    break
+        except Exception as e:
+            # Si hay error, intentar log normal
+            try:
+                self.log_message(f"Error procesando cola: {str(e)}")
+            except:
+                pass
 
         # Continuar procesando cada 100ms
-        self.after(100, self.process_log_queue)
+        try:
+            self.after(100, self.process_log_queue)
+        except Exception as e:
+            # Si after falla, detener el procesamiento
+            print(f"Error en after(): {str(e)}")
 
     def log_message(self, message):
         """Agregar mensaje al log (desde el hilo principal)"""
@@ -433,5 +471,14 @@ class MP3FasterFast(ctk.CTk):
         self.destroy()
 
 if __name__ == "__main__":
-    app = MP3FasterFast()
-    app.mainloop()
+    try:
+        print("Iniciando MP3 FasterFast...")
+        app = MP3FasterFast()
+        print("Aplicacion creada, iniciando interfaz...")
+        app.mainloop()
+        print("Aplicacion cerrada normalmente")
+    except Exception as e:
+        print(f"ERROR FATAL: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        input("Presiona Enter para salir...")
