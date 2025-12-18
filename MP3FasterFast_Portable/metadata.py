@@ -1,8 +1,11 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
+from customtkinter import CTkImage
 from mutagen.easyid3 import EasyID3
+from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC, error
+from PIL import Image
 from utils import MP3_DIR
 
 class MetadataEditor(ctk.CTkToplevel):
@@ -40,13 +43,23 @@ class MetadataEditor(ctk.CTkToplevel):
             'album': '',
             'comment': ''
         }
+        self.album_art = None
 
         try:
+            # Cargar metadatos básicos
             audio = EasyID3(self.mp3_file)
             self.metadata['title'] = audio.get('title', [''])[0]
             self.metadata['artist'] = audio.get('artist', [''])[0]
             self.metadata['album'] = audio.get('album', [''])[0]
             self.metadata['comment'] = audio.get('comment', [''])[0]
+
+            # Intentar cargar portada
+            mp3_audio = MP3(self.mp3_file, ID3=ID3)
+            for tag in mp3_audio.tags.values():
+                if isinstance(tag, APIC):
+                    self.album_art = tag.data
+                    break
+
         except Exception as e:
             print(f"Error cargando metadatos: {e}")
 
@@ -54,6 +67,26 @@ class MetadataEditor(ctk.CTkToplevel):
         """Crear widgets de la interfaz"""
         # Título
         ctk.CTkLabel(self, text="Editar Metadatos MP3", font=("Arial", 16, "bold")).pack(pady=10)
+
+        # Mostrar portada si existe
+        if self.album_art:
+            try:
+                # Crear imagen desde bytes
+                import io
+                img = Image.open(io.BytesIO(self.album_art))
+                img = img.resize((150, 150), Image.Resampling.LANCZOS)
+                photo = CTkImage(img, size=(150, 150))
+
+                # Frame para la portada
+                cover_frame = ctk.CTkFrame(self, fg_color="transparent")
+                cover_frame.pack(pady=5)
+
+                ctk.CTkLabel(cover_frame, text="Portada del Álbum:").pack()
+                cover_label = ctk.CTkLabel(cover_frame, image=photo, text="")
+                cover_label.pack(pady=5)
+
+            except Exception as e:
+                print(f"Error mostrando portada: {e}")
 
         # Frame principal
         frame = ctk.CTkFrame(self)

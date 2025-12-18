@@ -1,6 +1,8 @@
 import subprocess
 import json
 import re
+import urllib.request
+import urllib.error
 from pathlib import Path
 from utils import YT_DLP_EXE, FFMPEG_EXE, get_download_path
 from database import Database
@@ -14,6 +16,146 @@ class Downloader:
         """Log de mensajes"""
         if self.log_callback:
             self.log_callback(message)
+
+    def check_internet_connection(self):
+        """Verificar si hay conexión a internet"""
+        try:
+            urllib.request.urlopen('http://www.google.com', timeout=5)
+            return True
+        except urllib.error.URLError:
+            return False
+
+    def download_thumbnail(self, thumbnail_url, output_path):
+        """Descargar thumbnail/portada"""
+        try:
+            with urllib.request.urlopen(thumbnail_url, timeout=10) as response:
+                with open(output_path, 'wb') as f:
+                    f.write(response.read())
+            return True
+        except Exception as e:
+            self.log(f"Error descargando thumbnail: {str(e)}")
+            return False
+
+    def apply_thumbnail_to_mp3(self, mp3_path, thumbnail_path):
+        """Aplicar thumbnail como portada a archivo MP3"""
+        try:
+            from mutagen.mp3 import MP3
+            from mutagen.id3 import APIC, ID3
+
+            # Cargar archivo MP3
+            audio = MP3(mp3_path, ID3=ID3)
+
+            # Leer imagen
+            with open(thumbnail_path, 'rb') as img_file:
+                img_data = img_file.read()
+
+            # Crear tag de imagen
+            audio.tags.add(
+                APIC(
+                    encoding=3,  # UTF-8
+                    mime='image/jpeg',  # o 'image/png' dependiendo del formato
+                    type=3,  # Cover (front)
+                    desc='Cover',
+                    data=img_data
+                )
+            )
+
+            # Guardar cambios
+            audio.save()
+            self.log("Portada aplicada al archivo MP3")
+            return True
+
+        except Exception as e:
+            self.log(f"Error aplicando portada MP3: {str(e)}")
+            return False
+
+    def apply_thumbnail_to_mp4(self, mp4_path, thumbnail_path):
+        """Aplicar thumbnail como poster a archivo MP4"""
+        try:
+            # Usar ffmpeg para agregar thumbnail como metadata
+            cmd = [
+                str(FFMPEG_EXE),
+                '-i', str(mp4_path),
+                '-i', str(thumbnail_path),
+                '-map', '0',
+                '-map', '1',
+                '-c', 'copy',
+                '-disposition:v:1', 'attached_pic',
+                '-metadata:s:v', 'title=Album cover',
+                '-metadata:s:v', 'comment=Cover (front)',
+                str(mp4_path) + '_temp.mp4'
+            ]
+
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+
+            if result.returncode == 0:
+                # Reemplazar archivo original
+                import os
+                os.replace(str(mp4_path) + '_temp.mp4', str(mp4_path))
+                self.log("Portada aplicada al archivo MP4")
+                return True
+            else:
+                self.log(f"Error aplicando portada MP4: {result.stderr}")
+                return False
+
+        except Exception as e:
+            self.log(f"Error aplicando portada MP4: {str(e)}")
+            return False
+
+    def apply_thumbnail_to_file(self, url, download_path, download_type):
+        """Aplicar thumbnail al archivo descargado"""
+        try:
+            # Extraer información del video para obtener thumbnail
+            info = self.extract_info(url)
+            if not info or isinstance(info, list):
+                return
+
+            thumbnail_url = info.get('thumbnail')
+            if not thumbnail_url:
+                self.log("No se encontró thumbnail para este video")
+                return
+
+            # Determinar nombre del archivo descargado
+            title = info.get('title', 'Unknown')
+            if download_type == "mp3":
+                file_path = download_path / f"{title}.mp3"
+                is_mp3 = True
+            else:
+                file_path = download_path / f"{title}.mp4"
+                is_mp3 = False
+
+            if not file_path.exists():
+                self.log("Archivo descargado no encontrado")
+                return
+
+            # Descargar thumbnail a archivo temporal
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
+                temp_path = temp_file.name
+
+            if self.download_thumbnail(thumbnail_url, temp_path):
+                # Aplicar thumbnail según tipo de archivo
+                if is_mp3:
+                    success = self.apply_thumbnail_to_mp3(file_path, temp_path)
+                else:
+                    success = self.apply_thumbnail_to_mp4(file_path, temp_path)
+
+                if success:
+                    self.log("Portada aplicada exitosamente")
+                else:
+                    self.log("Error aplicando portada")
+            else:
+                self.log("Error descargando thumbnail")
+
+            # Limpiar archivo temporal
+            try:
+                import os
+                os.unlink(temp_path)
+            except:
+                pass
+
+        except Exception as e:
+            self.log(f"Error en apply_thumbnail_to_file: {str(e)}")
 
     def extract_info(self, url):
         """Extraer información del video/playlist sin descargar"""
@@ -96,6 +238,13 @@ class Downloader:
 
             if process.returncode == 0:
                 self.log("Descarga completada exitosamente")
+
+                # Descargar y aplicar portada si hay conexión a internet
+                if self.check_internet_connection():
+                    self.log("Conexión a internet detectada - descargando portada...")
+                    self.apply_thumbnail_to_file(url, download_path, download_type)
+                else:
+                    self.log("Sin conexión a internet - omitiendo descarga de portada")
 
                 # Extraer información y guardar en BD
                 info = self.extract_info(url)
