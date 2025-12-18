@@ -110,9 +110,10 @@ class MP3FasterFast(ctk.CTk):
                                        font=("Arial", 10), text_color="gray70")
         self.url_counter.pack(side="right")
 
-        self.urls_textbox = ctk.CTkTextbox(urls_frame, height=140,
-                                         placeholder_text="Pega aquí las URLs de YouTube...\n\nEjemplos:\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\nhttps://youtu.be/dQw4w9WgXcQ\nhttps://www.youtube.com/playlist?list=...")
+        self.urls_textbox = ctk.CTkTextbox(urls_frame, height=140)
         self.urls_textbox.pack(fill="x", padx=10, pady=5)
+        # Insertar texto de placeholder manualmente
+        self.urls_textbox.insert("0.0", "Pega aquí las URLs de YouTube...\n\nEjemplos:\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\nhttps://youtu.be/dQw4w9WgXcQ\nhttps://www.youtube.com/playlist?list=...")
         self.urls_textbox.bind("<KeyRelease>", self.update_url_counter)
 
         # Información de ayuda
@@ -309,12 +310,20 @@ class MP3FasterFast(ctk.CTk):
     def clear_urls(self):
         """Limpiar el área de URLs"""
         self.urls_textbox.delete("0.0", "end")
+        # Re-insertar placeholder
+        self.urls_textbox.insert("0.0", "Pega aquí las URLs de YouTube...\n\nEjemplos:\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\nhttps://youtu.be/dQw4w9WgXcQ\nhttps://www.youtube.com/playlist?list=...")
         self.update_url_counter()
         self.log_message("🗑️ URLs limpiadas")
 
     def update_url_counter(self, event=None):
         """Actualizar contador de URLs en tiempo real"""
         urls_text = self.urls_textbox.get("0.0", "end").strip()
+        placeholder = "Pega aquí las URLs de YouTube..."
+
+        # Si solo está el placeholder, contar como vacío
+        if urls_text.startswith(placeholder):
+            urls_text = urls_text[len(placeholder):].strip()
+
         if urls_text:
             urls = [url.strip() for url in urls_text.split('\n') if url.strip()]
             count = len(urls)
