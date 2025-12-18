@@ -866,8 +866,16 @@ class MP3FasterFast(ctk.CTk):
             self.after(100, lambda: self.log_message(f"[DEBUG] Estado del widget después de actualización: {widget_info['status'].cget('text') if 'status' in widget_info else 'NO STATUS'}"))
 
             # Descargar
-            success = self.downloader.download_video(url, download_format, source_type)
-            self.log_message(f"[STATUS] Resultado de descarga: {'[OK] Éxito' if success else '[CANCEL] Falló'}")
+            print("🔥 [DOWNLOAD] Llamando a downloader.download_video...")
+            print(f"🔥 [DOWNLOAD] Parámetros: url={url[:30]}..., formato={download_format}, tipo={source_type}")
+            try:
+                success = self.downloader.download_video(url, download_format, source_type)
+                print(f"🔥 [DOWNLOAD] Método retornó: {success}")
+                self.log_message(f"[STATUS] Resultado de descarga: {'[OK] Éxito' if success else '[CANCEL] Falló'}")
+            except Exception as e:
+                print(f"🔥 [ERROR] Excepción en download_video: {e}")
+                success = False
+                self.log_message(f"[CRASH] Error llamando download_video: {str(e)}")
 
             if success:
                 # Completado
