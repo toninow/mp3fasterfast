@@ -88,17 +88,8 @@ class MP3FasterFast(ctk.CTk):
         # Protocolo de cierre
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # Detectar si estamos en entorno headless
-        try:
-            # Intentar obtener información de la pantalla
-            screen_width = self.winfo_screenwidth()
-            screen_height = self.winfo_screenheight()
-            print(f"Pantalla detectada: {screen_width}x{screen_height}")
-        except:
-            print("ADVERTENCIA: Entorno headless detectado")
-            # En entorno headless, cerrar automáticamente después de 3 segundos
-            self.after(3000, lambda: self.quit())
-            return
+        # Configurar ventana básica
+        print("Iniciando MP3 FasterFast...")
 
         # Mensaje de bienvenida (después de configurar todo)
         self.after(100, lambda: self.log_message("MP3 FasterFast iniciado correctamente"))
@@ -421,8 +412,8 @@ class MP3FasterFast(ctk.CTk):
                 # Actualizar progreso
                 progress = (i - 1) / len(urls)
                 self.after(0, lambda p=progress: self.progress_bar.set(p))
-                self.after(0, lambda: self.progress_text.configure(text=f"{i}/{len(urls)}"))
-                self.after(0, lambda u=url: self.current_status.configure(text=f"Estado: Descargando {u[:30]}...", text_color="blue"))
+                self.after(0, lambda: self.progress_text.configure(text=f"{i}/{len(urls)} completado"))
+                self.after(0, lambda u=url: self.current_status.configure(text=f"📥 Descargando: {u[:35]}...", text_color="blue"))
 
                 self.log_message(f"Descargando {i}/{len(urls)}: {url[:50]}...")
 
