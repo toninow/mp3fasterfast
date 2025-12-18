@@ -823,11 +823,10 @@ class MP3FasterFast(ctk.CTk):
             quality = widget_info['quality'].get()
             self.log_message(f"[INFO] Calidad seleccionada: {quality}")
 
-            if download_type == "🎵 MP3 (Audio)":
+            if download_type == "[MP3] Audio":
                 source_type = "url"
-                download_format = "mp3"
-                # Configurar calidad de audio
-                if quality == "320kbps":
+                # Configurar calidad de audio - "Mejor" usa 320kbps
+                if quality == "Mejor" or quality == "320kbps":
                     download_format = "mp3_320"
                 elif quality == "256kbps":
                     download_format = "mp3_256"
@@ -835,8 +834,10 @@ class MP3FasterFast(ctk.CTk):
                     download_format = "mp3_192"
                 elif quality == "128kbps":
                     download_format = "mp3_128"
-                # "Mejor" usa configuración por defecto
-                self.log_message(f"[AUDIO] Configurado para MP3 {quality}")
+                else:
+                    # Fallback por defecto
+                    download_format = "mp3_320"
+                self.log_message(f"[AUDIO] Configurado para MP3 {quality} -> {download_format}")
             elif download_type == "🎬 Video (MP4)":
                 source_type = "url"
                 download_format = "video"

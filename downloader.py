@@ -205,6 +205,10 @@ class Downloader:
             # Configurar formato
             if download_type == "mp3":
                 cmd.extend(['-x', '--audio-format', 'mp3', '--audio-quality', '0'])
+            elif download_type.startswith("mp3_"):
+                # Formatos específicos de MP3: mp3_320, mp3_256, etc.
+                quality = download_type.split("_")[1]  # Extraer calidad (320, 256, etc.)
+                cmd.extend(['-x', '--audio-format', 'mp3', '--audio-quality', quality])
             elif download_type == "video":
                 cmd.extend(['-f', 'best[height<=720]'])  # Mejor calidad hasta 720p
             elif download_type == "video_mp4":
