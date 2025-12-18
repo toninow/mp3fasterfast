@@ -946,7 +946,7 @@ class MP3FasterFast(ctk.CTk):
 
                 ydl_opts = {
                     'quiet': True,
-                    'no_warnings': False,  # Mostrar warnings para debug
+                    'no_warnings': True,  # Suprimir warnings
                     'extract_flat': False,
                     'socket_timeout': 25,  # Timeout aumentado a 25 segundos
                     'retries': 3  # 3 reintentos

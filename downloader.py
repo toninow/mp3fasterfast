@@ -180,6 +180,7 @@ class Downloader:
         try:
             cmd = [
                 str(YT_DLP_EXE),
+                '--no-warnings',
                 '--no-download',
                 '--print-json',
                 '--ffmpeg-location', str(FFMPEG_EXE),
@@ -221,7 +222,7 @@ class Downloader:
             # Determinar opciones según tipo
             download_path = get_download_path("video" if download_type in ["video", "playlist_mp4"] else "mp3", source_type)
 
-            cmd = [str(YT_DLP_EXE)]
+            cmd = [str(YT_DLP_EXE), '--no-warnings']
 
             # Configurar formato
             if download_type == "mp3":
