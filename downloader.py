@@ -292,6 +292,10 @@ class Downloader:
                 self.log(f"Error en descarga: {str(e)}")
                 return False
 
+        except Exception as e:
+            self.log(f"Error general en download_video: {str(e)}")
+            return False
+
     def close(self):
         """Cerrar conexiones"""
         if self.db:
