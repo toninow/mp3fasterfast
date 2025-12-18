@@ -23,4 +23,4 @@ except ImportError:
 
 # Ejecutar la aplicación
 print("Iniciando MP3 FasterFast...")
-exec(open("app.py").read())
+exec(open("app.py", encoding="utf-8").read())

@@ -50,7 +50,7 @@ REM Intentar con py
 py --version >nul 2>&1
 if %errorlevel% equ 0 (
     echo Python (py) encontrado, iniciando aplicacion...
-    py app.py
+    py MP3FasterFast.pyw
     goto :eof
 )
 
