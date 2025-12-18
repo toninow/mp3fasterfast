@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['app.py'],
+    ['MP3FasterFast.pyw'],
     pathex=[],
     binaries=[],
-    datas=[('fasterfast.png', '.'), ('yt-dlp.exe', '.'), ('ffmpeg.exe', '.')],
+    datas=[],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,5 +35,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['fasterfast.png'],
 )
