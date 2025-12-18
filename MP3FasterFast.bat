@@ -4,13 +4,24 @@ echo     MP3 FasterFast - Iniciando...
 echo ====================================
 echo.
 
-REM Cambiar al directorio del script
-cd /d "%~dp0"
+REM Obtener directorio del script (para ejecutar desde cualquier lugar)
+set "SCRIPT_DIR=%~dp0"
+if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
+REM Cambiar al directorio del proyecto
+if exist "%SCRIPT_DIR%\mp3fasterfast" (
+    cd /d "%SCRIPT_DIR%\mp3fasterfast"
+    echo Ejecutando desde: %SCRIPT_DIR%\mp3fasterfast
+) else (
+    cd /d "%SCRIPT_DIR%"
+    echo Ejecutando desde: %SCRIPT_DIR%
+)
+
+echo.
 REM Verificar dependencias de Python
 echo Verificando dependencias de Python...
 
-py -c "import customtkinter, mutagen" >nul 2>&1
+py -c "import customtkinter, mutagen, PIL" >nul 2>&1
 if %errorlevel% neq 0 (
     echo Instalando dependencias faltantes...
     py -m pip install customtkinter mutagen Pillow --quiet

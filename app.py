@@ -145,73 +145,93 @@ class MP3FasterFast(ctk.CTk):
         ctk.CTkLabel(title_frame, text="Descargador de Música y Videos Portable",
                     font=("Arial", 11), text_color="gray70").pack(pady=(5, 0))
 
-        # Panel de descarga
-        download_frame = ctk.CTkFrame(main_frame)
-        download_frame.pack(pady=15, padx=20, fill="x")
+        # Contenedor principal horizontal
+        main_container = ctk.CTkFrame(main_frame)
+        main_container.pack(pady=15, padx=20, fill="both", expand=True)
 
-        # Título del panel
-        ctk.CTkLabel(download_frame, text="Descargar Contenido",
-                    font=("Arial", 14, "bold")).pack(pady=10)
+        # Panel izquierdo - Logo y controles
+        left_panel = ctk.CTkFrame(main_container, width=250)
+        left_panel.pack(side="left", fill="y", padx=(0, 10))
+
+        # Logo en el panel izquierdo
+        try:
+            logo_path = BASE_DIR / "fasterfast.png"
+            if logo_path.exists():
+                logo_image = ctk.CTkImage(Image.open(logo_path), size=(200, 200))
+                logo_label = ctk.CTkLabel(left_panel, image=logo_image, text="")
+                logo_label.pack(pady=20)
+        except Exception as e:
+            print(f"Error cargando logo: {str(e)}")
 
         # Tipo de descarga
-        type_frame = ctk.CTkFrame(download_frame, fg_color="transparent")
-        type_frame.pack(pady=5, fill="x")
+        type_label = ctk.CTkLabel(left_panel, text="Tipo de descarga:",
+                                font=("Arial", 11, "bold"))
+        type_label.pack(pady=(10, 5))
 
-        ctk.CTkLabel(type_frame, text="Tipo de descarga:",
-                    font=("Arial", 11)).pack(side="left", padx=10)
-        self.download_type = ctk.CTkComboBox(type_frame,
+        self.download_type = ctk.CTkComboBox(left_panel,
                                            values=["MP3 (Audio)", "Video (MP4)", "Playlist MP3", "Playlist MP4"],
-                                           state="readonly", width=150)
+                                           state="readonly", width=200)
         self.download_type.set("MP3 (Audio)")
-        self.download_type.pack(side="right", padx=10)
+        self.download_type.pack(pady=(0, 20))
 
-        # Sección de URLs
-        urls_section = ctk.CTkFrame(download_frame, fg_color="transparent")
-        urls_section.pack(pady=10, fill="x", padx=10)
+        # Panel derecho - URLs y descargas
+        right_panel = ctk.CTkFrame(main_container)
+        right_panel.pack(side="right", fill="both", expand=True)
+
+        # Panel superior - URLs
+        urls_panel = ctk.CTkFrame(right_panel)
+        urls_panel.pack(fill="x", pady=(0, 10))
+
+        # Título URLs
+        urls_title = ctk.CTkLabel(urls_panel, text="URLs para descargar",
+                                font=("Arial", 14, "bold"))
+        urls_title.pack(pady=10)
+
+        # Contenedor horizontal para URLs
+        urls_container = ctk.CTkFrame(urls_panel, fg_color="transparent")
+        urls_container.pack(fill="x", padx=15, pady=(0, 15))
 
         # URL Individual
-        single_url_frame = ctk.CTkFrame(urls_section)
-        single_url_frame.pack(pady=(0, 10), fill="x")
+        single_frame = ctk.CTkFrame(urls_container)
+        single_frame.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
-        ctk.CTkLabel(single_url_frame, text="URL Individual",
-                    font=("Arial", 12, "bold")).pack(pady=5)
+        ctk.CTkLabel(single_frame, text="URL Individual:",
+                    font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(10, 5))
 
-        self.single_url_entry = ctk.CTkEntry(single_url_frame,
-                                           placeholder_text="Pega una URL de YouTube aquí...",
+        self.single_url_entry = ctk.CTkEntry(single_frame,
+                                           placeholder_text="Pega una URL aquí...",
                                            height=35)
-        self.single_url_entry.pack(fill="x", padx=10, pady=(0, 5))
+        self.single_url_entry.pack(fill="x", padx=10, pady=(0, 10))
 
-        single_btn_frame = ctk.CTkFrame(single_url_frame, fg_color="transparent")
-        single_btn_frame.pack(fill="x", padx=10, pady=5)
-
-        self.download_single_btn = ctk.CTkButton(single_btn_frame, text="Descargar Esta URL",
+        self.download_single_btn = ctk.CTkButton(single_frame, text="Descargar",
                                                command=self.download_single_url, height=30)
-        self.download_single_btn.pack(side="left")
+        self.download_single_btn.pack(fill="x", padx=10, pady=(0, 10))
 
-        ctk.CTkButton(single_btn_frame, text="Limpiar", width=80, height=30,
-                     command=lambda: self.single_url_entry.delete(0, "end")).pack(side="right")
+        ctk.CTkButton(single_frame, text="Limpiar",
+                     command=lambda: self.single_url_entry.delete(0, "end"),
+                     height=25).pack(fill="x", padx=10)
 
-        # Separador visual
-        separator = ctk.CTkFrame(urls_section, height=2, fg_color="gray70")
-        separator.pack(fill="x", pady=10)
+        # Separador vertical
+        separator = ctk.CTkFrame(urls_container, width=2, fg_color="gray70")
+        separator.pack(side="left", fill="y", padx=10)
 
         # URLs Múltiples
-        multiple_urls_frame = ctk.CTkFrame(urls_section)
-        multiple_urls_frame.pack(fill="x")
+        multiple_frame = ctk.CTkFrame(urls_container)
+        multiple_frame.pack(side="right", fill="x", expand=True, padx=(5, 0))
 
         # Header con contador
-        multiple_header = ctk.CTkFrame(multiple_urls_frame, fg_color="transparent")
+        multiple_header = ctk.CTkFrame(multiple_frame, fg_color="transparent")
         multiple_header.pack(fill="x", padx=10, pady=5)
 
-        ctk.CTkLabel(multiple_header, text="URLs Multiples (Descarga Masiva)",
-                    font=("Arial", 12, "bold")).pack(side="left")
-        self.url_counter = ctk.CTkLabel(multiple_header, text="0 URLs detectadas",
-                                       font=("Arial", 10), text_color="gray70")
+        ctk.CTkLabel(multiple_header, text="URLs Múltiples:",
+                    font=("Arial", 10, "bold")).pack(side="left")
+        self.url_counter = ctk.CTkLabel(multiple_header, text="0 URLs",
+                                       font=("Arial", 9), text_color="gray70")
         self.url_counter.pack(side="right")
 
-        # Área de texto para URLs múltiples
-        self.urls_textbox = ctk.CTkTextbox(multiple_urls_frame, height=120)
-        self.urls_textbox.pack(fill="x", padx=10, pady=5)
+        # Área de texto más pequeña
+        self.urls_textbox = ctk.CTkTextbox(multiple_frame, height=80)
+        self.urls_textbox.pack(fill="x", padx=10, pady=(0, 5))
         self.urls_textbox.bind("<KeyRelease>", self.update_url_counter)
         self.urls_textbox.bind("<FocusIn>", self.clear_placeholder)
         self.urls_textbox.bind("<Button-1>", self.clear_placeholder)
@@ -220,31 +240,18 @@ class MP3FasterFast(ctk.CTk):
         self.placeholder_active = True
         self.set_placeholder_text()
 
-        # Botones de acción
-        multiple_btn_frame = ctk.CTkFrame(multiple_urls_frame, fg_color="transparent")
-        multiple_btn_frame.pack(fill="x", padx=10, pady=5)
+        # Botones para múltiples
+        multiple_btns = ctk.CTkFrame(multiple_frame, fg_color="transparent")
+        multiple_btns.pack(fill="x", padx=10, pady=(0, 10))
 
-        self.download_btn = ctk.CTkButton(multiple_btn_frame, text="Iniciar Descargas Masivas",
-                                         command=self.start_multiple_downloads, height=35)
-        self.download_btn.pack(side="left", padx=(0, 10))
+        self.download_btn = ctk.CTkButton(multiple_btns, text="Descargar Todo",
+                                         command=self.start_multiple_downloads, height=30)
+        self.download_btn.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
-        self.clear_btn = ctk.CTkButton(multiple_btn_frame, text="Limpiar Todo", width=100, height=35,
-                                      command=self.clear_urls, fg_color="transparent", border_width=2)
+        self.clear_btn = ctk.CTkButton(multiple_btns, text="Limpiar",
+                                      command=self.clear_urls, width=70, height=30,
+                                      fg_color="transparent", border_width=2)
         self.clear_btn.pack(side="right")
-
-        # Botones de acción
-        buttons_frame = ctk.CTkFrame(download_frame, fg_color="transparent")
-        buttons_frame.pack(pady=15)
-
-        self.download_btn = ctk.CTkButton(buttons_frame, text="Iniciar Descargas",
-                                         command=self.start_multiple_downloads,
-                                         height=40, font=("Arial", 12, "bold"))
-        self.download_btn.pack(side="left", padx=10)
-
-        self.clear_btn = ctk.CTkButton(buttons_frame, text="Limpiar URLs",
-                                      command=self.clear_urls, fg_color="transparent",
-                                      border_width=2, height=40)
-        self.clear_btn.pack(side="left", padx=10)
 
         # Área de log
         log_frame = ctk.CTkFrame(main_frame)
@@ -467,7 +474,7 @@ class MP3FasterFast(ctk.CTk):
     def update_url_counter(self, event=None):
         """Actualizar contador de URLs en tiempo real"""
         if self.placeholder_active:
-            self.url_counter.configure(text="0 URLs detectadas")
+            self.url_counter.configure(text="0 URLs")
             return
 
         urls_text = self.urls_textbox.get("0.0", "end").strip()
@@ -478,14 +485,9 @@ class MP3FasterFast(ctk.CTk):
             valid_urls = [url for url in lines if 'youtube.com' in url or 'youtu.be' in url]
             count = len(valid_urls)
 
-            if count == 0:
-                self.url_counter.configure(text="0 URLs detectadas")
-            elif count == 1:
-                self.url_counter.configure(text="1 URL detectada")
-            else:
-                self.url_counter.configure(text=f"{count} URLs detectadas")
+            self.url_counter.configure(text=f"{count} URLs")
         else:
-            self.url_counter.configure(text="0 URLs detectadas")
+            self.url_counter.configure(text="0 URLs")
 
     def download_single_url(self):
         """Descargar URL individual"""
