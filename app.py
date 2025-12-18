@@ -696,7 +696,7 @@ class MP3FasterFast(ctk.CTk):
         # Título del video
         title_label = ctk.CTkLabel(info_frame, text="Cargando título...",
                                  font=("Arial", 12, "bold"), text_color="#ffffff",
-                                 anchor="w", justify="left")
+                                 anchor="w", justify="left", wraplength=200)
         title_label.pack(fill="x", pady=(0, 3))
 
         # URL del video
