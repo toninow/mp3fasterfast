@@ -105,18 +105,23 @@ class Downloader:
     def apply_thumbnail_to_file(self, url, download_path, download_type):
         """Aplicar thumbnail al archivo descargado"""
         try:
+            print(f"🔥 [THUMBNAIL] Iniciando apply_thumbnail_to_file para {url[:30]}...")
             # Extraer información del video para obtener thumbnail
             info = self.extract_info(url)
+            print(f"🔥 [THUMBNAIL] extract_info retornó: {info is not None}")
             if not info or isinstance(info, list):
                 return
 
             thumbnail_url = info.get('thumbnail')
+            print(f"🔥 [THUMBNAIL] Thumbnail URL: {thumbnail_url}")
             if not thumbnail_url:
+                print("🔥 [THUMBNAIL] No hay thumbnail URL")
                 self.log("No se encontró thumbnail para este video")
                 return
 
             # Determinar nombre del archivo descargado
             title = info.get('title', 'Unknown')
+            print(f"🔥 [THUMBNAIL] Título del archivo: {title}")
             if download_type == "mp3":
                 file_path = download_path / f"{title}.mp3"
                 is_mp3 = True
@@ -124,7 +129,9 @@ class Downloader:
                 file_path = download_path / f"{title}.mp4"
                 is_mp3 = False
 
+            print(f"🔥 [THUMBNAIL] Buscando archivo: {file_path}")
             if not file_path.exists():
+                print("🔥 [THUMBNAIL] Archivo no encontrado")
                 self.log("Archivo descargado no encontrado")
                 return
 
@@ -151,10 +158,14 @@ class Downloader:
             try:
                 import os
                 os.unlink(temp_path)
+                print("🔥 [THUMBNAIL] Archivo temporal limpiado")
             except:
                 pass
 
+            print("🔥 [THUMBNAIL] apply_thumbnail_to_file completado exitosamente")
+
         except Exception as e:
+            print(f"🔥 [THUMBNAIL] ERROR en apply_thumbnail_to_file: {e}")
             self.log(f"Error en apply_thumbnail_to_file: {str(e)}")
 
     def extract_info(self, url):
@@ -258,6 +269,7 @@ class Downloader:
                     print("🔥 [DOWNLOADER] Conexión OK, descargando portada...")
                     self.log("Conexión a internet detectada - descargando portada...")
                     self.apply_thumbnail_to_file(url, download_path, download_type)
+                    print("🔥 [DOWNLOADER] Portada procesada")
                 else:
                     print("🔥 [DOWNLOADER] Sin conexión, saltando portada")
                     self.log("Sin conexión a internet - omitiendo descarga de portada")
