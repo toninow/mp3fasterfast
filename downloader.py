@@ -179,7 +179,7 @@ class Downloader:
                 url
             ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30)
 
             if result.returncode == 0:
                 # Si es playlist, yt-dlp devuelve múltiples JSON
@@ -201,6 +201,9 @@ class Downloader:
                 self.log(f"Error extrayendo info: {result.stderr}")
                 return None
 
+        except subprocess.TimeoutExpired:
+            self.log("Timeout extrayendo información del video (30s)")
+            return None
         except Exception as e:
             self.log(f"Error extrayendo info: {str(e)}")
             return None
