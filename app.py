@@ -809,7 +809,7 @@ class MP3FasterFast(ctk.CTk):
                     self.log_message("[IMAGE] Thumbnail encontrado, cargando...")
                     self.load_thumbnail(widget_info, thumbnail_url)
                 else:
-                    self.log_message("⚠️ No se encontró thumbnail para este video")
+                    self.log_message("[INFO] No se encontró thumbnail, continuando sin imagen")
             else:
                 self.log_message("[CANCEL] Error obteniendo información del video")
                 self.after(0, lambda: widget_info['title'].configure(text="Error obteniendo título"))
@@ -970,11 +970,14 @@ class MP3FasterFast(ctk.CTk):
 
         if not result['completed']:
             self.log_message("[ERROR] Timeout: No se pudo obtener información del video (10s)")
+            # Intentar extraer al menos el ID del video de la URL para un título básico
+            video_id = self.extract_video_id(url)
+            fallback_title = f"Video {video_id}" if video_id else "Video sin título"
             return {
-                'title': 'Timeout - Título no disponible',
+                'title': f'[TIMEOUT] {fallback_title}',
                 'thumbnail': None,
                 'duration': None,
-                'uploader': 'Timeout'
+                'uploader': 'Desconocido'
             }
 
         if result['error']:
@@ -987,6 +990,24 @@ class MP3FasterFast(ctk.CTk):
             }
 
         return result['info']
+
+    def extract_video_id(self, url):
+        """Extraer ID del video de la URL de YouTube"""
+        import re
+
+        # Patrones para diferentes formatos de URL de YouTube
+        patterns = [
+            r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})',
+            r'youtube\.com\/embed\/([a-zA-Z0-9_-]{11})',
+            r'youtube\.com\/v\/([a-zA-Z0-9_-]{11})'
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                return match.group(1)
+
+        return None
 
     def load_thumbnail(self, widget_info, thumbnail_url):
         """Cargar y mostrar thumbnail del video"""
