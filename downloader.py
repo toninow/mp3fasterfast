@@ -239,74 +239,58 @@ class Downloader:
 
             self.log(f"Ejecutando: {' '.join(cmd)}")
 
-            # Ejecutar descarga
-            print(f"🔥 [DOWNLOADER] Iniciando subprocess Popen...")
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                     text=True, encoding='utf-8', errors='replace', bufsize=1, universal_newlines=True)
-            print(f"🔥 [DOWNLOADER] Subprocess creado, PID: {process.pid}")
+            # Ejecutar descarga con timeout
+            print(f"🔥 [DOWNLOADER] Ejecutando subprocess.run con timeout...")
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True,
+                                      encoding='utf-8', errors='replace', timeout=60)
+                print(f"🔥 [DOWNLOADER] Subprocess completado, código: {result.returncode}")
 
-            # Leer output en tiempo real
-            print("🔥 [DOWNLOADER] Iniciando lectura de output...")
-            output_count = 0
-            while True:
-                output = process.stdout.readline()
-                if output == '' and process.poll() is not None:
-                    print(f"🔥 [DOWNLOADER] Fin de output detectado, proceso terminado")
-                    break
-                if output:
-                    output_count += 1
-                    if output_count <= 5:  # Solo mostrar primeros 5 outputs para no saturar
-                        print(f"🔥 [DOWNLOADER] Output {output_count}: {output.strip()[:100]}...")
-                    self.log(output.strip())
+                # Log output
+                if result.stdout:
+                    output_lines = result.stdout.strip().split('\n')
+                    for i, line in enumerate(output_lines[:5]):  # Solo primeros 5
+                        print(f"🔥 [DOWNLOADER] Output {i+1}: {line[:100]}...")
+                        self.log(line)
 
-            print(f"🔥 [DOWNLOADER] Proceso terminado con código: {process.returncode}")
-            if process.returncode == 0:
-                print("🔥 [DOWNLOADER] Descarga exitosa, procesando portada...")
-                self.log("Descarga completada exitosamente")
+                if result.returncode == 0:
+                    print("🔥 [DOWNLOADER] Descarga exitosa, procesando portada...")
+                    self.log("Descarga completada exitosamente")
 
-                # Descargar y aplicar portada si hay conexión a internet
-                if self.check_internet_connection():
-                    print("🔥 [DOWNLOADER] Conexión OK, descargando portada...")
-                    self.log("Conexión a internet detectada - descargando portada...")
-                    self.apply_thumbnail_to_file(url, download_path, download_type)
-                    print("🔥 [DOWNLOADER] Portada procesada")
-                else:
-                    print("🔥 [DOWNLOADER] Sin conexión, saltando portada")
-                    self.log("Sin conexión a internet - omitiendo descarga de portada")
-
-                # Extraer información y guardar en BD
-                print("🔥 [DOWNLOADER] Extrayendo info para BD...")
-                info = self.extract_info(url)
-                if info:
-                    if isinstance(info, list):
-                        # Playlist
-                        for video in info:
-                            title = video.get('title', 'Unknown')
-                            artist = video.get('uploader', 'Unknown')
-                            file_path = str(download_path / f"{title}.{'mp3' if 'mp3' in download_type else 'mp4'}")
-                            self.db.add_download(url, title, artist,
-                                               "mp3" if "mp3" in download_type else "video",
-                                               source_type, file_path)
+                    # Descargar y aplicar portada si hay conexión a internet
+                    if self.check_internet_connection():
+                        print("🔥 [DOWNLOADER] Conexión OK, descargando portada...")
+                        self.log("Conexión a internet detectada - descargando portada...")
+                        self.apply_thumbnail_to_file(url, download_path, download_type)
+                        print("🔥 [DOWNLOADER] Portada procesada")
                     else:
-                        # Video individual
-                        title = info.get('title', 'Unknown')
-                        artist = info.get('uploader', 'Unknown')
-                        file_path = str(download_path / f"{title}.{'mp3' if download_type == 'mp3' else 'mp4'}")
-                        self.db.add_download(url, title, artist,
-                                           "mp3" if download_type == "mp3" else "video",
-                                           source_type, file_path)
+                        print("🔥 [DOWNLOADER] Sin conexión, saltando portada")
+                        self.log("Sin conexión a internet - omitiendo descarga de portada")
 
-                print("🔥 [DOWNLOADER] Método retornando True")
-                return True
-            else:
-                print(f"🔥 [DOWNLOADER] Error en descarga, código: {process.returncode}")
-                self.log(f"Error en descarga: código {process.returncode}")
+                    # Extraer información y guardar en BD
+                    print("🔥 [DOWNLOADER] Extrayendo info para BD...")
+                    info = self.extract_info(url)
+                    if info:
+                        print(f"🔥 [DOWNLOADER] Guardando en BD: {info.get('title', 'N/A')[:30]}...")
+                        self.db.add_download(info['title'], url, download_type, source_type)
+                        print("🔥 [DOWNLOADER] Info guardada en BD")
+                    else:
+                        print("🔥 [DOWNLOADER] No se pudo extraer info para BD")
+                    print("🔥 [DOWNLOADER] Método retornando True")
+                    return True
+                else:
+                    print(f"🔥 [DOWNLOADER] Error en descarga, código: {result.returncode}")
+                    self.log(f"Error en descarga: código {result.returncode}")
+                    return False
+
+            except subprocess.TimeoutExpired:
+                print("🔥 [DOWNLOADER] Timeout: Proceso cancelado después de 60 segundos")
+                self.log("Error: Timeout en descarga (60 segundos)")
                 return False
-
-        except Exception as e:
-            print(f"🔥 [DOWNLOADER] Excepción en download_video: {e}")
-            self.log(f"Error en descarga: {str(e)}")
-            return False
+            except Exception as e:
+                print(f"🔥 [DOWNLOADER] Excepción en download_video: {e}")
+                self.log(f"Error en descarga: {str(e)}")
+                return False
 
     def close(self):
         """Cerrar conexiones"""
