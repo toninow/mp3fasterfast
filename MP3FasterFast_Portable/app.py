@@ -1,14 +1,16 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import customtkinter as ctk
+from customtkinter import CTkImage
 from datetime import datetime, timedelta
 import threading
 import queue
+from PIL import Image
 from downloader import Downloader
 from database import Database
 from metadata import MetadataEditor
 from scheduler import Scheduler
-from utils import ensure_directories, validate_dependencies, load_config, save_config, MP3_DIR
+from utils import ensure_directories, validate_dependencies, load_config, save_config, MP3_DIR, BASE_DIR
 
 # Configurar CustomTkinter
 ctk.set_appearance_mode("dark")
@@ -25,32 +27,85 @@ class MP3FasterFast(ctk.CTk):
         # Cola para comunicación thread-safe
         self.log_queue = queue.Queue()
 
+        # Cargar icono de la aplicación
+        try:
+            icon_path = BASE_DIR / "fasterfast.png"
+            if icon_path.exists():
+                # Cargar imagen como icono
+                icon_photo = tk.PhotoImage(file=str(icon_path))
+                self.iconphoto(True, icon_photo)
+                print("Icono cargado correctamente")
+            else:
+                print("Icono no encontrado")
+        except Exception as e:
+            print(f"Error cargando icono: {str(e)}")
+
         # Centrar ventana
+        print("Centrando ventana...")
         self.center_window()
+        print("Ventana centrada")
 
         # Inicializar componentes
         self.db = Database()
 
         # Validar dependencias
+        print("Validando dependencias...")
         missing_deps = validate_dependencies()
         if missing_deps:
-            messagebox.showerror("Dependencias faltantes",
-                               f"Faltan los siguientes archivos en la carpeta del programa:\n{chr(10).join(missing_deps)}")
+            error_msg = f"Faltan los siguientes archivos en la carpeta del programa:\n{chr(10).join(missing_deps)}"
+            print(f"ERROR: {error_msg}")
+            try:
+                messagebox.showerror("Dependencias faltantes", error_msg)
+            except:
+                print("No se pudo mostrar messagebox (entorno sin GUI)")
             self.destroy()
             return
+        print("Dependencias validadas")
 
         # Crear directorios
+        print("Creando directorios...")
         ensure_directories()
+        print("Directorios creados")
 
-        # Crear interfaz
-        self.create_widgets()
+        # Crear interfaz (con manejo de errores)
+        try:
+            self.create_widgets()
+            print("Widgets creados")
+        except Exception as e:
+            print(f"Error creando widgets: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
 
-        # Cargar historial
-        self.load_history()
+        # Cargar historial (con manejo de errores)
+        try:
+            self.load_history()
+            print("Historial cargado")
+        except Exception as e:
+            print(f"Error cargando historial: {str(e)}")
+            # Continuar sin historial si hay error
 
-        # Mensaje de bienvenida
-        self.log_message("🎵 MP3 FasterFast iniciado correctamente")
-        self.log_message("💡 Pega múltiples URLs para descargar en lote")
+        # Protocolo de cierre
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # Detectar si estamos en entorno headless
+        try:
+            # Intentar obtener información de la pantalla
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            print(f"Pantalla detectada: {screen_width}x{screen_height}")
+        except:
+            print("ADVERTENCIA: Entorno headless detectado")
+            # En entorno headless, cerrar automáticamente después de 3 segundos
+            self.after(3000, lambda: self.quit())
+            return
+
+        # Mensaje de bienvenida (después de configurar todo)
+        self.after(100, lambda: self.log_message("MP3 FasterFast iniciado correctamente"))
+        self.after(100, lambda: self.log_message("Pega multiples URLs para descargar en lote"))
+
+        # Iniciar procesamiento de cola de logs después de que la ventana esté lista
+        self.after(200, self.process_log_queue)
 
     def center_window(self):
         """Centrar ventana en pantalla"""
@@ -67,11 +122,25 @@ class MP3FasterFast(ctk.CTk):
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(pady=10, padx=10, fill="both", expand=True)
 
-        # Título y subtítulo
+        # Título y logo
         title_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         title_frame.pack(pady=15)
 
-        ctk.CTkLabel(title_frame, text="🎵 MP3 FasterFast",
+        # Logo
+        try:
+            logo_path = BASE_DIR / "fasterfast.png"
+            if logo_path.exists():
+                # Cargar imagen para el logo
+                logo_photo = tk.PhotoImage(file=str(logo_path))
+                # Redimensionar manteniendo proporción
+                logo_photo = logo_photo.subsample(4, 4)  # Hacer 1/4 del tamaño
+                logo_label = tk.Label(title_frame, image=logo_photo, bg=self.cget("fg_color")[1] if isinstance(self.cget("fg_color"), list) else self.cget("fg_color"))
+                logo_label.image = logo_photo  # Mantener referencia
+                logo_label.pack(pady=(0, 10))
+        except Exception as e:
+            print(f"Error cargando logo: {str(e)}")
+
+        ctk.CTkLabel(title_frame, text="MP3 FasterFast",
                     font=("Arial", 22, "bold")).pack()
         ctk.CTkLabel(title_frame, text="Descargador de Música y Videos Portable",
                     font=("Arial", 11), text_color="gray70").pack(pady=(5, 0))
@@ -96,45 +165,83 @@ class MP3FasterFast(ctk.CTk):
         self.download_type.set("MP3 (Audio)")
         self.download_type.pack(side="right", padx=10)
 
-        # URLs múltiples
-        urls_frame = ctk.CTkFrame(download_frame)
-        urls_frame.pack(pady=10, fill="x", padx=10)
+        # Sección de URLs
+        urls_section = ctk.CTkFrame(download_frame, fg_color="transparent")
+        urls_section.pack(pady=10, fill="x", padx=10)
+
+        # URL Individual
+        single_url_frame = ctk.CTkFrame(urls_section)
+        single_url_frame.pack(pady=(0, 10), fill="x")
+
+        ctk.CTkLabel(single_url_frame, text="URL Individual",
+                    font=("Arial", 12, "bold")).pack(pady=5)
+
+        self.single_url_entry = ctk.CTkEntry(single_url_frame,
+                                           placeholder_text="Pega una URL de YouTube aquí...",
+                                           height=35)
+        self.single_url_entry.pack(fill="x", padx=10, pady=(0, 5))
+
+        single_btn_frame = ctk.CTkFrame(single_url_frame, fg_color="transparent")
+        single_btn_frame.pack(fill="x", padx=10, pady=5)
+
+        self.download_single_btn = ctk.CTkButton(single_btn_frame, text="Descargar Esta URL",
+                                               command=self.download_single_url, height=30)
+        self.download_single_btn.pack(side="left")
+
+        ctk.CTkButton(single_btn_frame, text="Limpiar", width=80, height=30,
+                     command=lambda: self.single_url_entry.delete(0, "end")).pack(side="right")
+
+        # Separador visual
+        separator = ctk.CTkFrame(urls_section, height=2, fg_color="gray70")
+        separator.pack(fill="x", pady=10)
+
+        # URLs Múltiples
+        multiple_urls_frame = ctk.CTkFrame(urls_section)
+        multiple_urls_frame.pack(fill="x")
 
         # Header con contador
-        urls_header = ctk.CTkFrame(urls_frame, fg_color="transparent")
-        urls_header.pack(fill="x", padx=10, pady=5)
+        multiple_header = ctk.CTkFrame(multiple_urls_frame, fg_color="transparent")
+        multiple_header.pack(fill="x", padx=10, pady=5)
 
-        ctk.CTkLabel(urls_header, text="URLs a descargar (una por línea):",
-                    font=("Arial", 11, "bold")).pack(side="left")
-        self.url_counter = ctk.CTkLabel(urls_header, text="0 URLs",
+        ctk.CTkLabel(multiple_header, text="URLs Multiples (Descarga Masiva)",
+                    font=("Arial", 12, "bold")).pack(side="left")
+        self.url_counter = ctk.CTkLabel(multiple_header, text="0 URLs detectadas",
                                        font=("Arial", 10), text_color="gray70")
         self.url_counter.pack(side="right")
 
-        self.urls_textbox = ctk.CTkTextbox(urls_frame, height=140)
+        # Área de texto para URLs múltiples
+        self.urls_textbox = ctk.CTkTextbox(multiple_urls_frame, height=120)
         self.urls_textbox.pack(fill="x", padx=10, pady=5)
-        # Insertar texto de placeholder manualmente
-        self.urls_textbox.insert("0.0", "Pega aquí las URLs de YouTube...\n\nEjemplos:\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\nhttps://youtu.be/dQw4w9WgXcQ\nhttps://www.youtube.com/playlist?list=...")
         self.urls_textbox.bind("<KeyRelease>", self.update_url_counter)
+        self.urls_textbox.bind("<FocusIn>", self.clear_placeholder)
+        self.urls_textbox.bind("<Button-1>", self.clear_placeholder)
 
-        # Información de ayuda
-        help_frame = ctk.CTkFrame(urls_frame, fg_color="transparent")
-        help_frame.pack(fill="x", padx=10, pady=5)
+        # Placeholder inicial
+        self.placeholder_active = True
+        self.set_placeholder_text()
 
-        ctk.CTkLabel(help_frame, text="💡 Puedes pegar múltiples URLs separadas por líneas",
-                    font=("Arial", 9), text_color="gray70").pack(side="left")
-        ctk.CTkLabel(help_frame, text="📊 Se descargarán en orden secuencial",
-                    font=("Arial", 9), text_color="gray70").pack(side="right")
+        # Botones de acción
+        multiple_btn_frame = ctk.CTkFrame(multiple_urls_frame, fg_color="transparent")
+        multiple_btn_frame.pack(fill="x", padx=10, pady=5)
+
+        self.download_btn = ctk.CTkButton(multiple_btn_frame, text="Iniciar Descargas Masivas",
+                                         command=self.start_multiple_downloads, height=35)
+        self.download_btn.pack(side="left", padx=(0, 10))
+
+        self.clear_btn = ctk.CTkButton(multiple_btn_frame, text="Limpiar Todo", width=100, height=35,
+                                      command=self.clear_urls, fg_color="transparent", border_width=2)
+        self.clear_btn.pack(side="right")
 
         # Botones de acción
         buttons_frame = ctk.CTkFrame(download_frame, fg_color="transparent")
         buttons_frame.pack(pady=15)
 
-        self.download_btn = ctk.CTkButton(buttons_frame, text="🚀 Iniciar Descargas",
+        self.download_btn = ctk.CTkButton(buttons_frame, text="Iniciar Descargas",
                                          command=self.start_multiple_downloads,
                                          height=40, font=("Arial", 12, "bold"))
         self.download_btn.pack(side="left", padx=10)
 
-        self.clear_btn = ctk.CTkButton(buttons_frame, text="🗑️ Limpiar URLs",
+        self.clear_btn = ctk.CTkButton(buttons_frame, text="Limpiar URLs",
                                       command=self.clear_urls, fg_color="transparent",
                                       border_width=2, height=40)
         self.clear_btn.pack(side="left", padx=10)
@@ -146,9 +253,9 @@ class MP3FasterFast(ctk.CTk):
         log_header = ctk.CTkFrame(log_frame, fg_color="transparent")
         log_header.pack(fill="x", padx=10, pady=5)
 
-        ctk.CTkLabel(log_header, text="📋 Registro de actividad",
+        ctk.CTkLabel(log_header, text="Registro de actividad",
                     font=("Arial", 12, "bold")).pack(side="left")
-        ctk.CTkButton(log_header, text="🗑️ Limpiar", width=80, height=25,
+        ctk.CTkButton(log_header, text="Limpiar", width=80, height=25,
                      command=self.clear_log).pack(side="right")
 
         self.log_text = ctk.CTkTextbox(log_frame, height=120, wrap="word")
@@ -163,9 +270,9 @@ class MP3FasterFast(ctk.CTk):
         history_header = ctk.CTkFrame(history_frame, fg_color="transparent")
         history_header.pack(fill="x", padx=10, pady=5)
 
-        ctk.CTkLabel(history_header, text="📚 Historial de descargas",
+        ctk.CTkLabel(history_header, text="Historial de descargas",
                     font=("Arial", 12, "bold")).pack(side="left")
-        ctk.CTkButton(history_header, text="🔄 Actualizar", width=90, height=25,
+        ctk.CTkButton(history_header, text="Actualizar", width=90, height=25,
                      command=self.load_history).pack(side="right", padx=(5, 0))
         self.history_count = ctk.CTkLabel(history_header, text="0 elementos",
                                          font=("Arial", 10), text_color="gray70")
@@ -211,17 +318,32 @@ class MP3FasterFast(ctk.CTk):
     def process_log_queue(self):
         """Procesar mensajes de la cola de logs"""
         try:
-            while True:
-                message = self.log_queue.get_nowait()
-                self.log_text.configure(state="normal")
-                self.log_text.insert("end", f"[{datetime.now().strftime('%H:%M:%S')}] {message}\n")
-                self.log_text.configure(state="disabled")
-                self.log_text.see("end")
-        except queue.Empty:
-            pass
+            # Procesar máximo 10 mensajes por llamada para no bloquear la UI
+            for _ in range(10):
+                try:
+                    message = self.log_queue.get_nowait()
+                    if hasattr(self, 'log_text') and self.log_text:
+                        self.log_text.configure(state="normal")
+                        self.log_text.insert("end", f"[{datetime.now().strftime('%H:%M:%S')}] {message}\n")
+                        self.log_text.configure(state="disabled")
+                        self.log_text.see("end")
+                except queue.Empty:
+                    break
+        except Exception as e:
+            # Si hay error, intentar log normal
+            try:
+                if hasattr(self, 'log_message'):
+                    self.log_message(f"Error procesando cola: {str(e)}")
+            except:
+                print(f"Error en process_log_queue: {str(e)}")
 
-        # Continuar procesando cada 100ms
-        self.after(100, self.process_log_queue)
+        # Continuar procesando cada 100ms (solo si la app sigue activa)
+        try:
+            if hasattr(self, 'tk') and self.tk:
+                self.after(100, self.process_log_queue)
+        except Exception as e:
+            # Si after falla, detener el procesamiento
+            print(f"Deteniendo process_log_queue: {str(e)}")
 
     def log_message(self, message):
         """Agregar mensaje al log (desde el hilo principal)"""
@@ -235,19 +357,141 @@ class MP3FasterFast(ctk.CTk):
         self.log_text.configure(state="normal")
         self.log_text.delete("0.0", "end")
         self.log_text.configure(state="disabled")
-        self.log_message("🧹 Registro limpiado")
+        self.log_message("Registro limpiado")
 
     def start_multiple_downloads(self):
         """Iniciar descargas múltiples"""
-        urls_text = self.urls_textbox.get("0.0", "end").strip()
-        if not urls_text:
-            messagebox.showerror("Error", "Ingresa al menos una URL")
+        if self.placeholder_active:
+            messagebox.showwarning("Advertencia", "Ingresa URLs válidas para descargar")
             return
 
-        # Procesar URLs
-        urls = [url.strip() for url in urls_text.split('\n') if url.strip()]
-        if not urls:
-            messagebox.showerror("Error", "No se encontraron URLs válidas")
+        urls_text = self.urls_textbox.get("0.0", "end").strip()
+        if not urls_text:
+            messagebox.showwarning("Advertencia", "El área de URLs está vacía")
+            return
+
+        # Procesar y filtrar URLs válidas
+        lines = [line.strip() for line in urls_text.split('\n') if line.strip()]
+        valid_urls = [url for url in lines if 'youtube.com' in url or 'youtu.be' in url]
+
+        if not valid_urls:
+            messagebox.showerror("Error", "No se encontraron URLs válidas de YouTube")
+            return
+
+        # Confirmar descarga masiva
+        if len(valid_urls) > 1:
+            confirm = messagebox.askyesno("Confirmar descarga masiva",
+                                        f"Se descargarán {len(valid_urls)} elementos.\n¿Continuar?")
+            if not confirm:
+                return
+
+        # Mapear tipos de descarga
+        download_type_map = {
+            "MP3 (Audio)": "mp3",
+            "Video (MP4)": "video_mp4",
+            "Playlist MP3": "playlist_mp3",
+            "Playlist MP4": "playlist_mp4"
+        }
+
+        download_type = download_type_map[self.download_type.get()]
+
+        # Determinar tipo de fuente (si es playlist, usar ese tipo)
+        source_type = "playlist" if "Playlist" in download_type else "url"
+
+        # Deshabilitar botón
+        self.download_btn.configure(state="disabled", text="⏳ Procesando...")
+
+        # Ejecutar en hilo
+        threading.Thread(target=self.multiple_downloads_worker,
+                        args=(valid_urls, download_type, source_type), daemon=True).start()
+
+    def multiple_downloads_worker(self, urls, download_type, source_type):
+        """Worker para múltiples descargas"""
+        try:
+            downloader = Downloader(self.log_message)
+            completed = 0
+            failed = 0
+
+            self.log_message(f"Iniciando descarga de {len(urls)} elementos...")
+
+            for i, url in enumerate(urls, 1):
+                self.log_message(f"Descargando {i}/{len(urls)}: {url[:50]}...")
+                try:
+                    success = downloader.download_video(url, download_type, source_type)
+                    if success:
+                        completed += 1
+                        self.log_message(f"Completado: {url[:50]}...")
+                    else:
+                        failed += 1
+                        self.log_message(f"Error: {url[:50]}...")
+                except Exception as e:
+                    failed += 1
+                    self.log_message(f"Error critico en {url[:50]}...: {str(e)}")
+
+            downloader.close()
+
+            # Recargar historial
+            self.after(0, self.load_history)
+
+            # Resumen final
+            self.log_message(f"Proceso terminado: {completed} exitosas, {failed} fallidas")
+
+        except Exception as e:
+            self.log_message(f"Error general: {str(e)}")
+        finally:
+            # Rehabilitar botón
+            self.after(0, lambda: self.download_btn.configure(state="normal", text="Iniciar Descargas"))
+
+    def set_placeholder_text(self):
+        """Establecer texto placeholder en el área de URLs múltiples"""
+        if self.placeholder_active:
+            self.urls_textbox.delete("0.0", "end")
+            self.urls_textbox.insert("0.0", "Pega aquí las URLs de YouTube (una por línea)...\n\nEjemplos:\n• https://www.youtube.com/watch?v=dQw4w9WgXcQ\n• https://youtu.be/dQw4w9WgXcQ\n• https://www.youtube.com/playlist?list=PLrAXtmRdnEQy4qtr5GrLOg0J8jIvT8Lr")
+            self.urls_textbox.configure(text_color="gray70")
+
+    def clear_placeholder(self, event=None):
+        """Limpiar placeholder cuando el usuario empieza a escribir"""
+        if self.placeholder_active:
+            self.urls_textbox.delete("0.0", "end")
+            self.urls_textbox.configure(text_color=("gray10", "gray90"))  # Color normal
+            self.placeholder_active = False
+
+    def clear_urls(self):
+        """Limpiar el área de URLs múltiples"""
+        self.urls_textbox.delete("0.0", "end")
+        self.placeholder_active = True
+        self.set_placeholder_text()
+        self.update_url_counter()
+        self.log_message("URLs limpiadas")
+
+    def update_url_counter(self, event=None):
+        """Actualizar contador de URLs en tiempo real"""
+        if self.placeholder_active:
+            self.url_counter.configure(text="0 URLs detectadas")
+            return
+
+        urls_text = self.urls_textbox.get("0.0", "end").strip()
+
+        if urls_text:
+            # Filtrar URLs válidas (contienen youtube.com o youtu.be)
+            lines = [line.strip() for line in urls_text.split('\n') if line.strip()]
+            valid_urls = [url for url in lines if 'youtube.com' in url or 'youtu.be' in url]
+            count = len(valid_urls)
+
+            if count == 0:
+                self.url_counter.configure(text="0 URLs detectadas")
+            elif count == 1:
+                self.url_counter.configure(text="1 URL detectada")
+            else:
+                self.url_counter.configure(text=f"{count} URLs detectadas")
+        else:
+            self.url_counter.configure(text="0 URLs detectadas")
+
+    def download_single_url(self):
+        """Descargar URL individual"""
+        url = self.single_url_entry.get().strip()
+        if not url:
+            messagebox.showwarning("Advertencia", "Ingresa una URL para descargar")
             return
 
         # Mapear tipos de descarga
@@ -264,72 +508,31 @@ class MP3FasterFast(ctk.CTk):
         source_type = "playlist" if "Playlist" in self.download_type.get() else "url"
 
         # Deshabilitar botón
-        self.download_btn.configure(state="disabled", text="⏳ Procesando...")
+        self.download_single_btn.configure(state="disabled", text="Descargando...")
 
         # Ejecutar en hilo
-        threading.Thread(target=self.multiple_downloads_worker,
-                        args=(urls, download_type, source_type), daemon=True).start()
+        threading.Thread(target=self.download_single_worker,
+                        args=([url], download_type, source_type), daemon=True).start()
 
-    def multiple_downloads_worker(self, urls, download_type, source_type):
-        """Worker para múltiples descargas"""
+    def download_single_worker(self, urls, download_type, source_type):
+        """Worker para descarga individual"""
         try:
             downloader = Downloader(self.log_message)
-            completed = 0
-            failed = 0
-
-            self.log_message(f"🚀 Iniciando descarga de {len(urls)} elementos...")
-
-            for i, url in enumerate(urls, 1):
-                self.log_message(f"📥 Descargando {i}/{len(urls)}: {url[:50]}...")
-                try:
-                    success = downloader.download_video(url, download_type, source_type)
-                    if success:
-                        completed += 1
-                        self.log_message(f"✅ Completado: {url[:50]}...")
-                    else:
-                        failed += 1
-                        self.log_message(f"❌ Error: {url[:50]}...")
-                except Exception as e:
-                    failed += 1
-                    self.log_message(f"💥 Error crítico en {url[:50]}...: {str(e)}")
-
+            success = downloader.download_video(urls[0], download_type, source_type)
             downloader.close()
 
-            # Recargar historial
-            self.after(0, self.load_history)
-
-            # Resumen final
-            self.log_message(f"🎉 Proceso terminado: {completed} exitosas, {failed} fallidas")
+            if success:
+                self.log_message("Descarga completada exitosamente")
+                # Recargar historial
+                self.after(0, self.load_history)
+            else:
+                self.log_message("Error en la descarga")
 
         except Exception as e:
-            self.log_message(f"💥 Error general: {str(e)}")
+            self.log_message(f"Error: {str(e)}")
         finally:
             # Rehabilitar botón
-            self.after(0, lambda: self.download_btn.configure(state="normal", text="🚀 Iniciar Descargas"))
-
-    def clear_urls(self):
-        """Limpiar el área de URLs"""
-        self.urls_textbox.delete("0.0", "end")
-        # Re-insertar placeholder
-        self.urls_textbox.insert("0.0", "Pega aquí las URLs de YouTube...\n\nEjemplos:\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\nhttps://youtu.be/dQw4w9WgXcQ\nhttps://www.youtube.com/playlist?list=...")
-        self.update_url_counter()
-        self.log_message("🗑️ URLs limpiadas")
-
-    def update_url_counter(self, event=None):
-        """Actualizar contador de URLs en tiempo real"""
-        urls_text = self.urls_textbox.get("0.0", "end").strip()
-        placeholder = "Pega aquí las URLs de YouTube..."
-
-        # Si solo está el placeholder, contar como vacío
-        if urls_text.startswith(placeholder):
-            urls_text = urls_text[len(placeholder):].strip()
-
-        if urls_text:
-            urls = [url.strip() for url in urls_text.split('\n') if url.strip()]
-            count = len(urls)
-            self.url_counter.configure(text=f"{count} URL{'s' if count != 1 else ''}")
-        else:
-            self.url_counter.configure(text="0 URLs")
+            self.after(0, lambda: self.download_single_btn.configure(state="normal", text="Descargar Esta URL"))
 
 
     def load_history(self):
@@ -395,7 +598,7 @@ class MP3FasterFast(ctk.CTk):
                     self.db.remove_download(download_id)
                     # Recargar historial
                     self.load_history()
-                    self.log_message("🗑️ Descarga eliminada del historial")
+                    self.log_message("Descarga eliminada del historial")
                 else:
                     messagebox.showerror("Error", "No se pudo encontrar la descarga en la base de datos")
 
@@ -420,7 +623,7 @@ class MP3FasterFast(ctk.CTk):
                 if full_path.exists() and full_path.suffix.lower() == '.mp3':
                     try:
                         MetadataEditor(str(full_path))
-                        self.log_message(f"🎵 Editando metadatos: {title}")
+                        self.log_message(f"Editando metadatos: {title}")
                     except Exception as e:
                         messagebox.showerror("Error", f"No se pudo abrir el editor: {str(e)}")
                 else:
@@ -433,5 +636,14 @@ class MP3FasterFast(ctk.CTk):
         self.destroy()
 
 if __name__ == "__main__":
-    app = MP3FasterFast()
-    app.mainloop()
+    try:
+        print("Iniciando MP3 FasterFast...")
+        app = MP3FasterFast()
+        print("Aplicacion creada, iniciando interfaz...")
+        app.mainloop()
+        print("Aplicacion cerrada normalmente")
+    except Exception as e:
+        print(f"ERROR FATAL: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        input("Presiona Enter para salir...")
