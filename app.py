@@ -988,28 +988,6 @@ class MP3FasterFast(ctk.CTk):
 
         return result['info']
 
-        except ImportError:
-            self.log_message("[ERROR] yt-dlp no disponible - usando información básica")
-            # Extraer info básica de la URL
-            video_info = {
-                'title': 'Título no disponible (yt-dlp faltante)',
-                'thumbnail': None,
-                'duration': None,
-                'uploader': 'Desconocido'
-            }
-            return video_info
-
-        except Exception as e:
-            self.log_message(f"[ERROR] ERROR obteniendo info del video: {str(e)}")
-            # Retornar info básica en caso de error
-            video_info = {
-                'title': f'Error: {str(e)[:30]}',
-                'thumbnail': None,
-                'duration': None,
-                'uploader': 'Error'
-            }
-            return video_info
-
     def load_thumbnail(self, widget_info, thumbnail_url):
         """Cargar y mostrar thumbnail del video"""
         try:
