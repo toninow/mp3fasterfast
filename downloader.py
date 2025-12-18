@@ -216,7 +216,7 @@ class Downloader:
             self.log(f"Error extrayendo info: {str(e)}")
             return None
 
-    def download_video(self, url, download_type="video", source_type="url"):
+    def download_video(self, url, download_type="video", source_type="url", video_info=None):
         """Descargar video"""
         try:
             # Determinar opciones según tipo

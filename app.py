@@ -594,7 +594,7 @@ class MP3FasterFast(ctk.CTk):
                     # Simular progreso de canción (0% -> descargando -> 100%)
                     self.after(0, lambda: self.song_progress_label.configure(text="Progreso canción: 0%"))
 
-                    success = downloader.download_video(url, download_type, source_type)
+                    success = downloader.download_video(url, download_type, source_type, info)
 
                     if success:
                         self.completed_downloads += 1
@@ -869,7 +869,7 @@ class MP3FasterFast(ctk.CTk):
             print("🔥 [DOWNLOAD] Llamando a downloader.download_video...")
             print(f"🔥 [DOWNLOAD] Parámetros: url={url[:30]}..., formato={download_format}, tipo={source_type}")
             try:
-                success = self.downloader.download_video(url, download_format, source_type)
+                success = self.downloader.download_video(url, download_format, source_type, video_info)
                 print(f"🔥 [DOWNLOAD] Método retornó: {success}")
                 self.log_message(f"[STATUS] Resultado de descarga: {'[OK] Éxito' if success else '[CANCEL] Falló'}")
             except Exception as e:
