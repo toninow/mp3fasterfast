@@ -102,14 +102,21 @@ class Downloader:
             self.log(f"Error aplicando portada MP4: {str(e)}")
             return False
 
-    def apply_thumbnail_to_file(self, url, download_path, download_type):
+    def apply_thumbnail_to_file(self, url, download_path, download_type, video_info=None):
         """Aplicar thumbnail al archivo descargado"""
         try:
             print(f"🔥 [THUMBNAIL] Iniciando apply_thumbnail_to_file para {url[:30]}...")
-            # Extraer información del video para obtener thumbnail
-            info = self.extract_info(url)
-            print(f"🔥 [THUMBNAIL] extract_info retornó: {info is not None}")
+            # Usar la info del video pasada como parámetro, o extraerla si no está disponible
+            if video_info:
+                info = video_info
+                print("🔥 [THUMBNAIL] Usando info del video ya disponible")
+            else:
+                print("🔥 [THUMBNAIL] Extrayendo info del video...")
+                info = self.extract_info(url)
+                print(f"🔥 [THUMBNAIL] extract_info retornó: {info is not None}")
+
             if not info or isinstance(info, list):
+                print("🔥 [THUMBNAIL] Info del video no válida")
                 return
 
             thumbnail_url = info.get('thumbnail')
@@ -260,12 +267,13 @@ class Downloader:
                     print("🔥 [DOWNLOADER] Descarga exitosa, procesando portada...")
                     self.log("Descarga completada exitosamente")
 
-                    # Descargar y aplicar portada si hay conexión a internet
-                    if self.check_internet_connection():
-                        print("🔥 [DOWNLOADER] Conexión OK, descargando portada...")
-                        self.log("Conexión a internet detectada - descargando portada...")
-                        self.apply_thumbnail_to_file(url, download_path, download_type)
-                        print("🔥 [DOWNLOADER] Portada procesada")
+                # Descargar y aplicar portada si hay conexión a internet
+                if self.check_internet_connection():
+                    print("🔥 [DOWNLOADER] Conexión OK, descargando portada...")
+                    self.log("Conexión a internet detectada - descargando portada...")
+                    # Pasar la info del video que ya tenemos en lugar de volver a extraerla
+                    self.apply_thumbnail_to_file(url, download_path, download_type, video_info)
+                    print("🔥 [DOWNLOADER] Portada procesada")
                     else:
                         print("🔥 [DOWNLOADER] Sin conexión, saltando portada")
                         self.log("Sin conexión a internet - omitiendo descarga de portada")
