@@ -86,7 +86,7 @@ class Downloader:
                 str(mp4_path) + '_temp.mp4'
             ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
 
             if result.returncode == 0:
                 # Reemplazar archivo original
@@ -168,7 +168,7 @@ class Downloader:
                 url
             ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
 
             if result.returncode == 0:
                 # Si es playlist, yt-dlp devuelve múltiples JSON
@@ -226,7 +226,7 @@ class Downloader:
 
             # Ejecutar descarga
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                     text=True, encoding='utf-8', bufsize=1, universal_newlines=True)
+                                     text=True, encoding='utf-8', errors='replace', bufsize=1, universal_newlines=True)
 
             # Leer output en tiempo real
             while True:

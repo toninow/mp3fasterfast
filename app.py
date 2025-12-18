@@ -122,23 +122,9 @@ class MP3FasterFast(ctk.CTk):
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(pady=10, padx=10, fill="both", expand=True)
 
-        # Título y logo
+        # Título sin logo (solo en panel izquierdo)
         title_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         title_frame.pack(pady=15)
-
-        # Logo
-        try:
-            logo_path = BASE_DIR / "fasterfast.png"
-            if logo_path.exists():
-                # Cargar imagen para el logo
-                logo_photo = tk.PhotoImage(file=str(logo_path))
-                # Redimensionar manteniendo proporción
-                logo_photo = logo_photo.subsample(4, 4)  # Hacer 1/4 del tamaño
-                logo_label = tk.Label(title_frame, image=logo_photo, bg=self.cget("fg_color")[1] if isinstance(self.cget("fg_color"), list) else self.cget("fg_color"))
-                logo_label.image = logo_photo  # Mantener referencia
-                logo_label.pack(pady=(0, 10))
-        except Exception as e:
-            print(f"Error cargando logo: {str(e)}")
 
         ctk.CTkLabel(title_frame, text="MP3 FasterFast",
                     font=("Arial", 22, "bold")).pack()
