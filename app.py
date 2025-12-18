@@ -765,37 +765,51 @@ class MP3FasterFast(ctk.CTk):
     def _download_single_thread(self, url, widget_info):
         """Thread para descargar una sola URL"""
         try:
+            print("🔥 [DEBUG] Thread de descarga iniciado")
             self.log_message("[DEBUG] Thread de descarga iniciado")
+            print("🔥 [SEARCH] Obteniendo información del video...")
             self.log_message("[SEARCH] Obteniendo información del video...")
             # Actualizar estado
             self.after(0, lambda: widget_info['status'].configure(text="🔍 Obteniendo información...", text_color="#ffff00"))
+            print("🔥 [DEBUG] Estado actualizado a 'Obteniendo información...'")
             self.log_message("[DEBUG] Estado actualizado a 'Obteniendo información...'")
 
             # Obtener información del video
+            print("🔥 [DEBUG] Llamando a get_video_info...")
             self.log_message("[DEBUG] Llamando a get_video_info...")
             video_info = self.get_video_info(url)
+            print(f"🔥 [DEBUG] get_video_info retornó: {video_info is not None}")
             self.log_message(f"[DEBUG] get_video_info retornó: {video_info is not None}")
             if video_info:
+                print("🔥 [DEBUG] Video info es válido, procesando...")
                 self.log_message("[DEBUG] Video info es válido, procesando...")
                 title = video_info.get('title', 'Título desconocido')
+                print(f"🔥 [TITLE] Título obtenido: {title[:50]}{'...' if len(title) > 50 else ''}")
                 self.log_message(f"[TITLE] Título obtenido: {title[:50]}{'...' if len(title) > 50 else ''}")
                 # Actualizar título
                 self.after(0, lambda: widget_info['title'].configure(text=title))
+                print("🔥 [DEBUG] Título actualizado en widget")
                 self.log_message("[DEBUG] Título actualizado en widget")
 
                 # Cambiar estado a "Procesando..."
                 self.after(0, lambda: widget_info['status'].configure(text="⚙️ Procesando información...", text_color="#00ff00"))
+                print("🔥 [DEBUG] Estado cambiado a 'Procesando información...'")
                 self.log_message("[DEBUG] Estado cambiado a 'Procesando información...'")
 
                 # Actualizar thumbnail si está disponible
                 thumbnail_url = video_info.get('thumbnail')
+                print(f"🔥 [DEBUG] Thumbnail URL: {thumbnail_url}")
                 self.log_message(f"[DEBUG] Thumbnail URL: {thumbnail_url}")
                 if thumbnail_url:
+                    print("🔥 [IMAGE] Thumbnail encontrado, cargando...")
                     self.log_message("[IMAGE] Thumbnail encontrado, cargando...")
                     self.load_thumbnail(widget_info, thumbnail_url)
+                    print("🔥 [DEBUG] load_thumbnail completado")
                     self.log_message("[DEBUG] load_thumbnail completado")
                 else:
+                    print("🔥 [INFO] No se encontró thumbnail, continuando sin imagen")
                     self.log_message("[INFO] No se encontró thumbnail, continuando sin imagen")
+                print("🔥 [DEBUG] Procesamiento de video_info completado")
                 self.log_message("[DEBUG] Procesamiento de video_info completado")
             else:
                 self.log_message("[CANCEL] Error obteniendo información del video")
@@ -838,10 +852,13 @@ class MP3FasterFast(ctk.CTk):
                 self.log_message("[AUDIO] Configurado por defecto a MP3")
 
             # Actualizar progreso
+            print("🔥 [DEBUG] Actualizando progreso a 20%...")
             self.log_message("[DEBUG] Actualizando progreso a 20%...")
             self.after(0, lambda: widget_info['progress'].set(0.2))
             self.after(0, lambda: widget_info['status'].configure(text="[DOWNLOAD] Iniciando descarga...", text_color="#00aaff"))
+            print("🔥 [START] Iniciando descarga con yt-dlp...")
             self.log_message("[START] Iniciando descarga con yt-dlp...")
+            print(f"🔥 [DEBUG] Configuración: tipo={download_type}, formato={download_format}, calidad={quality}")
             self.log_message(f"[DEBUG] Configuración: tipo={download_type}, formato={download_format}, calidad={quality}")
 
             # Verificar que el widget se actualizó
@@ -1010,35 +1027,46 @@ class MP3FasterFast(ctk.CTk):
     def load_thumbnail(self, widget_info, thumbnail_url):
         """Cargar y mostrar thumbnail del video"""
         try:
+            print("🔥 [IMAGE] Descargando thumbnail...")
             self.log_message("[IMAGE] Descargando thumbnail...")
+            print(f"🔥 [DEBUG] URL del thumbnail: {thumbnail_url}")
             self.log_message(f"[DEBUG] URL del thumbnail: {thumbnail_url}")
             from PIL import Image
             import requests
             from io import BytesIO
 
             # Descargar imagen
+            print("🔥 [DOWNLOAD] Descargando imagen del thumbnail...")
             self.log_message("[DOWNLOAD] Descargando imagen del thumbnail...")
             response = requests.get(thumbnail_url, timeout=5)
+            print(f"🔥 [STATUS] Thumbnail descargado: {len(response.content)} bytes")
             self.log_message(f"[STATUS] Thumbnail descargado: {len(response.content)} bytes")
 
             img = Image.open(BytesIO(response.content))
+            print(f"🔥 [DEBUG] Imagen cargada: {img.size} -> {img.mode}")
             self.log_message(f"[DEBUG] Imagen cargada: {img.size} -> {img.mode}")
 
             # Redimensionar
+            print("🔥 🔧 Redimensionando thumbnail...")
             self.log_message("🔧 Redimensionando thumbnail...")
             img = img.resize((80, 60), Image.Resampling.LANCZOS)
+            print(f"🔥 [DEBUG] Imagen redimensionada: {img.size}")
             self.log_message(f"[DEBUG] Imagen redimensionada: {img.size}")
 
             # Convertir a CTkImage
+            print("🔥 [DEBUG] CTkImage creado correctamente")
             ctk_img = ctk.CTkImage(img, size=(80, 60))
             self.log_message("[DEBUG] CTkImage creado correctamente")
 
             # Verificar que el widget existe
             if 'thumbnail' in widget_info and widget_info['thumbnail'] is not None:
+                print("🔥 [DEBUG] Widget thumbnail encontrado, actualizando...")
                 self.log_message("[DEBUG] Widget thumbnail encontrado, actualizando...")
                 self.after(0, lambda: widget_info['thumbnail'].configure(image=ctk_img, text=""))
+                print("🔥 [OK] Thumbnail aplicado al widget")
                 self.log_message("[OK] Thumbnail aplicado al widget")
             else:
+                print("🔥 [ERROR] Widget thumbnail no encontrado en widget_info")
                 self.log_message("[ERROR] Widget thumbnail no encontrado en widget_info")
 
         except Exception as e:
