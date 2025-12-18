@@ -851,7 +851,7 @@ class MP3FasterFast(ctk.CTk):
 
             # Actualizar progreso
             self.after(0, lambda: widget_info['progress'].set(0.2))
-            self.after(0, lambda: widget_info['status'].configure(text="📥 Iniciando descarga...", text_color="#00aaff"))
+            self.after(0, lambda: widget_info['status'].configure(text="[DOWNLOAD] Iniciando descarga...", text_color="#00aaff"))
             self.log_message("[START] Iniciando descarga con yt-dlp...")
 
             # Descargar
@@ -913,37 +913,83 @@ class MP3FasterFast(ctk.CTk):
             print(f"Usando configuraciones por defecto: {e}")
 
     def get_video_info(self, url):
-        """Obtener información del video de YouTube"""
-        try:
-            self.log_message("[SEARCH] Consultando información del video...")
-            import yt_dlp
+        """Obtener información del video de YouTube con timeout"""
+        import threading
+        import time
 
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': False
-            }
+        # Variable para almacenar el resultado
+        result = {'info': None, 'error': None, 'completed': False}
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                self.log_message("[CONNECT] Extrayendo información del video...")
-                info = ydl.extract_info(url, download=False)
+        def extract_info():
+            try:
+                self.log_message("[SEARCH] Consultando información del video...")
+                import yt_dlp
 
-                video_info = {
-                    'title': info.get('title', 'Sin título'),
-                    'thumbnail': info.get('thumbnail'),
-                    'duration': info.get('duration'),
-                    'uploader': info.get('uploader')
+                ydl_opts = {
+                    'quiet': True,
+                    'no_warnings': True,
+                    'extract_flat': False,
+                    'socket_timeout': 8,  # Timeout de 8 segundos
+                    'retries': 1
                 }
 
-                self.log_message("[OK] Información obtenida:")
-                self.log_message(f"   [TITLE] Título: {video_info['title'][:30]}{'...' if len(video_info['title']) > 30 else ''}")
-                self.log_message(f"   [USER] Uploader: {video_info['uploader'] or 'Desconocido'}")
-                self.log_message(f"   [IMAGE] Thumbnail: {'[OK] Disponible' if video_info['thumbnail'] else '[CANCEL] No disponible'}")
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    self.log_message("[CONNECT] Extrayendo información del video...")
+                    info = ydl.extract_info(url, download=False)
 
-                return video_info
+                    video_info = {
+                        'title': info.get('title', 'Sin título'),
+                        'thumbnail': info.get('thumbnail'),
+                        'duration': info.get('duration'),
+                        'uploader': info.get('uploader')
+                    }
+
+                    result['info'] = video_info
+                    result['completed'] = True
+
+                    self.log_message("[OK] Información obtenida:")
+                    self.log_message(f"   [TITLE] Título: {video_info['title'][:30]}{'...' if len(video_info['title']) > 30 else ''}")
+                    self.log_message(f"   [USER] Uploader: {video_info['uploader'] or 'Desconocido'}")
+                    self.log_message(f"   [IMAGE] Thumbnail: {'[OK] Disponible' if video_info['thumbnail'] else '[ERROR] No disponible'}")
+
+            except Exception as e:
+                result['error'] = str(e)
+                self.log_message(f"[ERROR] Error en extracción: {str(e)}")
+
+        # Ejecutar en thread separado con timeout
+        self.log_message("[WAIT] Iniciando consulta de información...")
+        thread = threading.Thread(target=extract_info, daemon=True)
+        thread.start()
+
+        # Esperar con timeout
+        start_time = time.time()
+        while not result['completed'] and (time.time() - start_time) < 10:  # 10 segundos timeout
+            time.sleep(0.1)
+            if result['error']:
+                break
+
+        if not result['completed']:
+            self.log_message("[ERROR] Timeout: No se pudo obtener información del video (10s)")
+            return {
+                'title': 'Timeout - Título no disponible',
+                'thumbnail': None,
+                'duration': None,
+                'uploader': 'Timeout'
+            }
+
+        if result['error']:
+            self.log_message(f"[ERROR] Falló consulta de información: {result['error']}")
+            return {
+                'title': f'Error: {result["error"][:30]}',
+                'thumbnail': None,
+                'duration': None,
+                'uploader': 'Error'
+            }
+
+        return result['info']
 
         except ImportError:
-            self.log_message("⚠️ yt-dlp no disponible - usando información básica")
+            self.log_message("[ERROR] yt-dlp no disponible - usando información básica")
             # Extraer info básica de la URL
             video_info = {
                 'title': 'Título no disponible (yt-dlp faltante)',
@@ -954,10 +1000,10 @@ class MP3FasterFast(ctk.CTk):
             return video_info
 
         except Exception as e:
-            self.log_message(f"[CANCEL] ERROR obteniendo info del video: {str(e)}")
+            self.log_message(f"[ERROR] ERROR obteniendo info del video: {str(e)}")
             # Retornar info básica en caso de error
             video_info = {
-                'title': 'Error obteniendo título',
+                'title': f'Error: {str(e)[:30]}',
                 'thumbnail': None,
                 'duration': None,
                 'uploader': 'Error'
