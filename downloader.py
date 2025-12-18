@@ -229,28 +229,41 @@ class Downloader:
             self.log(f"Ejecutando: {' '.join(cmd)}")
 
             # Ejecutar descarga
+            print(f"🔥 [DOWNLOADER] Iniciando subprocess Popen...")
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                      text=True, encoding='utf-8', errors='replace', bufsize=1, universal_newlines=True)
+            print(f"🔥 [DOWNLOADER] Subprocess creado, PID: {process.pid}")
 
             # Leer output en tiempo real
+            print("🔥 [DOWNLOADER] Iniciando lectura de output...")
+            output_count = 0
             while True:
                 output = process.stdout.readline()
                 if output == '' and process.poll() is not None:
+                    print(f"🔥 [DOWNLOADER] Fin de output detectado, proceso terminado")
                     break
                 if output:
+                    output_count += 1
+                    if output_count <= 5:  # Solo mostrar primeros 5 outputs para no saturar
+                        print(f"🔥 [DOWNLOADER] Output {output_count}: {output.strip()[:100]}...")
                     self.log(output.strip())
 
+            print(f"🔥 [DOWNLOADER] Proceso terminado con código: {process.returncode}")
             if process.returncode == 0:
+                print("🔥 [DOWNLOADER] Descarga exitosa, procesando portada...")
                 self.log("Descarga completada exitosamente")
 
                 # Descargar y aplicar portada si hay conexión a internet
                 if self.check_internet_connection():
+                    print("🔥 [DOWNLOADER] Conexión OK, descargando portada...")
                     self.log("Conexión a internet detectada - descargando portada...")
                     self.apply_thumbnail_to_file(url, download_path, download_type)
                 else:
+                    print("🔥 [DOWNLOADER] Sin conexión, saltando portada")
                     self.log("Sin conexión a internet - omitiendo descarga de portada")
 
                 # Extraer información y guardar en BD
+                print("🔥 [DOWNLOADER] Extrayendo info para BD...")
                 info = self.extract_info(url)
                 if info:
                     if isinstance(info, list):
@@ -271,12 +284,15 @@ class Downloader:
                                            "mp3" if download_type == "mp3" else "video",
                                            source_type, file_path)
 
+                print("🔥 [DOWNLOADER] Método retornando True")
                 return True
             else:
+                print(f"🔥 [DOWNLOADER] Error en descarga, código: {process.returncode}")
                 self.log(f"Error en descarga: código {process.returncode}")
                 return False
 
         except Exception as e:
+            print(f"🔥 [DOWNLOADER] Excepción en download_video: {e}")
             self.log(f"Error en descarga: {str(e)}")
             return False
 
