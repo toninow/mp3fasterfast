@@ -1,0 +1,64 @@
+[33mcommit 06bc5e210a9f70bb699f844a71f2e543a72a2d9d[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: toninow <abenalcazarc@gmail.com>
+Date:   Fri Dec 19 11:03:16 2025 +0100
+
+    ventana responsive
+
+fasterfast
+mp3fasterfast/MP3FasterFast.spec
+mp3fasterfast/MP3FasterFast_New.spec
+mp3fasterfast/MP3FasterFast_Portable/MP3FasterFast.exe
+mp3fasterfast/MP3FasterFast_Portable/app.py
+mp3fasterfast/MP3FasterFast_Portable/database.py
+mp3fasterfast/MP3FasterFast_Portable/downloader.py
+mp3fasterfast/MP3FasterFast_Portable/fasterfast.png
+mp3fasterfast/MP3FasterFast_Portable/ffmpeg.exe
+mp3fasterfast/MP3FasterFast_Portable/metadata.py
+mp3fasterfast/MP3FasterFast_Portable/scheduler.py
+mp3fasterfast/MP3FasterFast_Portable/utils.py
+mp3fasterfast/MP3FasterFast_Portable/yt-dlp.exe
+mp3fasterfast/__pycache__/app.cpython-311.pyc
+mp3fasterfast/__pycache__/database.cpython-311.pyc
+mp3fasterfast/__pycache__/downloader.cpython-311.pyc
+mp3fasterfast/__pycache__/metadata.cpython-311.pyc
+mp3fasterfast/__pycache__/scheduler.cpython-311.pyc
+mp3fasterfast/__pycache__/utils.cpython-311.pyc
+mp3fasterfast/app.spec
+mp3fasterfast/app_minimal.py
+mp3fasterfast/build/MP3FasterFast/Analysis-00.toc
+mp3fasterfast/build/MP3FasterFast/EXE-00.toc
+mp3fasterfast/build/MP3FasterFast/MP3FasterFast.pkg
+mp3fasterfast/build/MP3FasterFast/PKG-00.toc
+mp3fasterfast/build/MP3FasterFast/PYZ-00.pyz
+mp3fasterfast/build/MP3FasterFast/PYZ-00.toc
+mp3fasterfast/build/MP3FasterFast/base_library.zip
+mp3fasterfast/build/MP3FasterFast/localpycs/pyimod01_archive.pyc
+mp3fasterfast/build/MP3FasterFast/localpycs/pyimod02_importers.pyc
+mp3fasterfast/build/MP3FasterFast/localpycs/pyimod03_ctypes.pyc
+mp3fasterfast/build/MP3FasterFast/localpycs/pyimod04_pywin32.pyc
+mp3fasterfast/build/MP3FasterFast/localpycs/struct.pyc
+mp3fasterfast/build/MP3FasterFast/warn-MP3FasterFast.txt
+mp3fasterfast/build/MP3FasterFast/xref-MP3FasterFast.html
+mp3fasterfast/data/downloads.db
+mp3fasterfast/debug_app.py
+mp3fasterfast/debug_download.py
+mp3fasterfast/debug_last_download.py
+mp3fasterfast/dist/MP3FasterFast.exe
+mp3fasterfast/downloads/MP3/Dorian - La Tormenta de arena (HQ).mp3
+mp3fasterfast/ffmpeg.exe
+mp3fasterfast/run_simple.py
+mp3fasterfast/test_app.py
+mp3fasterfast/test_app_timeout.py
+mp3fasterfast/test_buttons_visible.py
+mp3fasterfast/test_delete.py
+mp3fasterfast/test_descarga.py
+mp3fasterfast/test_download.py
+mp3fasterfast/test_info.py
+mp3fasterfast/test_last_download.py
+mp3fasterfast/test_method.py
+mp3fasterfast/test_responsive.py
+mp3fasterfast/test_save_config_feedback.py
+mp3fasterfast/test_simple.py
+mp3fasterfast/test_stats_filters.py
+mp3fasterfast/test_thread_db.py
+mp3fasterfast/yt-dlp.exe
