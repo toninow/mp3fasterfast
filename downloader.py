@@ -279,6 +279,9 @@ class Downloader:
                         print("🔥 [DOWNLOADER] Sin conexión, saltando portada")
                         self.log("Sin conexión a internet - omitiendo descarga de portada")
 
+                    # Normalizar tipo para BD
+                    db_type = 'mp3' if download_type.startswith('mp3') else 'video'
+
                     # Usar la información del video que ya tenemos para guardar en BD
                     print("🔥 [DOWNLOADER] Guardando info en BD...")
                     if video_info and isinstance(video_info, dict):
@@ -287,7 +290,7 @@ class Downloader:
                         # Construir file_path basado en el tipo de descarga
                         file_path = str(download_path / f"{title}.{download_type.split('_')[0] if '_' in download_type else download_type}")
                         print(f"🔥 [DOWNLOADER] Guardando en BD: {title[:30]}...")
-                        self.db.add_download(url, title, artist, download_type, source_type, file_path)
+                        self.db.add_download(url, title, artist, db_type, source_type, file_path)
                         print("🔥 [DOWNLOADER] Info guardada en BD")
                     else:
                         # Fallback: intentar extraer info básica
@@ -303,14 +306,14 @@ class Downloader:
                                 artist = info.get('uploader', 'Artista desconocido')
                                 file_path = str(download_path / f"{title}.{download_type.split('_')[0] if '_' in download_type else download_type}")
                                 print(f"🔥 [DOWNLOADER] Fallback guardado en BD: {title[:30]}...")
-                                self.db.add_download(url, title, artist, download_type, source_type, file_path)
+                                self.db.add_download(url, title, artist, db_type, source_type, file_path)
                             else:
                                 print("🔥 [DOWNLOADER] Fallback falló, guardando con título básico...")
                                 video_id = url.split('=')[-1][:10]
                                 title = f"Video {video_id}"
                                 artist = 'Artista desconocido'
                                 file_path = str(download_path / f"{title}.{download_type.split('_')[0] if '_' in download_type else download_type}")
-                                self.db.add_download(url, title, artist, download_type, source_type, file_path)
+                                self.db.add_download(url, title, artist, db_type, source_type, file_path)
                         except Exception as e:
                             print(f"🔥 [DOWNLOADER] Error en fallback: {e}")
                             video_id = url.split('=')[-1][:10]
