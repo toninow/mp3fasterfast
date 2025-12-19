@@ -5,11 +5,12 @@ from customtkinter import CTkImage
 from datetime import datetime, timedelta
 import threading
 import queue
+import os
 from PIL import Image
 from downloader import Downloader
 from database import Database
-from metadata import MetadataEditor
-from scheduler import Scheduler
+# from metadata import MetadataEditor  # Deshabilitado temporalmente
+# from scheduler import Scheduler  # Deshabilitado - no se usa
 from utils import ensure_directories, validate_dependencies, load_config, save_config, MP3_DIR, BASE_DIR
 
 # Configurar CustomTkinter con tema oscuro simplificado
@@ -33,12 +34,16 @@ class MP3FasterFast(ctk.CTk):
             raise
 
         self.title("MP3 FasterFast")
-        self.geometry("900x700")
-        self.resizable(False, False)
+        self.geometry("1200x900")
+        self.minsize(1000, 700)
+        self.resizable(True, True)
         print("Configuración básica de ventana completada")
 
         # Cola para comunicación thread-safe
         self.log_queue = queue.Queue()
+
+        # Calidades disponibles del último video consultado
+        self.available_qualities = []
 
         # Cargar icono de la aplicación
         try:
@@ -112,6 +117,13 @@ class MP3FasterFast(ctk.CTk):
             print("Historial cargado")
         except Exception as e:
             print(f"Error cargando historial: {str(e)}")
+
+        # Inicializar estadísticas
+        try:
+            self.update_statistics()
+            print("Estadísticas inicializadas")
+        except Exception as e:
+            print(f"Error inicializando estadísticas: {str(e)}")
             # Continuar sin historial si hay error
 
         # Protocolo de cierre
@@ -194,6 +206,7 @@ class MP3FasterFast(ctk.CTk):
 
         self.download_type = ctk.CTkComboBox(config_section,
                                            values=["[MP3] Audio", "[MP4] Video", "[PLAYLIST MP3]", "[PLAYLIST MP4]"],
+                                           command=self._update_quality_options,
                                            state="readonly", width=220)
         self.download_type.set("[MP3] Audio")
         self.download_type.pack(pady=(0, 10), padx=10)
@@ -209,48 +222,70 @@ class MP3FasterFast(ctk.CTk):
         self.default_quality_combo.set(self.default_quality)
         self.default_quality_combo.pack(pady=(0, 10), padx=10)
 
-        # Actualizar calidad cuando cambia el formato
-        self.download_type.bind("<<ComboboxSelected>>", self._update_quality_options)
-
         # Botón guardar configuración
         save_config_btn = ctk.CTkButton(config_section, text="💾 Guardar Config",
                                        command=self.save_settings, height=30,
                                        fg_color="#004400", border_width=1, border_color="#00aa00")
         save_config_btn.pack(pady=(5, 10), padx=10)
 
-        # Sección de progreso
-        progress_section = ctk.CTkFrame(left_panel)
-        progress_section.pack(fill="x", padx=15, pady=(0, 15))
+        # Sección de estadísticas
+        stats_section = ctk.CTkFrame(left_panel)
+        stats_section.pack(fill="x", padx=15, pady=(0, 15))
 
-        progress_title = ctk.CTkLabel(progress_section, text="[PROGRESO]",
-                                     font=("Arial", 12, "bold"))
-        progress_title.pack(pady=(10, 8))
+        stats_title = ctk.CTkLabel(stats_section, text="[ESTADÍSTICAS]",
+                                   font=("Arial", 12, "bold"))
+        stats_title.pack(pady=(10, 8))
 
-        # Barra de progreso
-        progress_label = ctk.CTkLabel(progress_section, text="Estado de descarga:",
+        # Estadísticas de descargas totales
+        self.total_stats_label = ctk.CTkLabel(stats_section,
+                                             text="📊 Total: 0",
+                                             font=("Arial", 11, "bold"),
+                                             fg_color="#2a2a2a",
+                                             corner_radius=8,
+                                             padx=10, pady=5)
+        self.total_stats_label.pack(pady=(0, 5), padx=10, fill="x")
+
+        # Estadísticas de audio
+        self.audio_stats_label = ctk.CTkLabel(stats_section,
+                                             text="🎵 Audio: 0 MP3",
+                                             font=("Arial", 10),
+                                             fg_color="#1a4a1a",
+                                             corner_radius=6,
+                                             padx=8, pady=4)
+        self.audio_stats_label.pack(pady=(0, 5), padx=10, fill="x")
+
+        # Estadísticas de video
+        self.video_stats_label = ctk.CTkLabel(stats_section,
+                                             text="🎬 Video: 0 MP4",
+                                             font=("Arial", 10),
+                                             fg_color="#4a1a1a",
+                                             corner_radius=6,
+                                             padx=8, pady=4)
+        self.video_stats_label.pack(pady=(0, 5), padx=10, fill="x")
+
+        # Filtros para la sección descargados
+        filters_title = ctk.CTkLabel(stats_section, text="🎯 Filtros Descargados:",
                                     font=("Arial", 10, "bold"))
-        progress_label.pack(pady=(0, 5), anchor="w", padx=10)
+        filters_title.pack(pady=(10, 5), padx=10, anchor="w")
 
-        self.progress_bar = ctk.CTkProgressBar(progress_section, width=220, height=18)
-        self.progress_bar.pack(pady=(0, 8), padx=10)
-        self.progress_bar.set(0)
+        # Filtro por tipo
+        filter_frame = ctk.CTkFrame(stats_section, fg_color="transparent")
+        filter_frame.pack(pady=(0, 8), padx=10, fill="x")
 
-        self.progress_text = ctk.CTkLabel(progress_section, text="Esperando URLs...",
-                                        font=("Arial", 9, "bold"))
-        self.progress_text.pack(pady=(0, 10), padx=10)
+        self.filter_type = ctk.CTkComboBox(filter_frame,
+                                          values=["Todos", "MP3", "MP4"],
+                                          command=self.apply_downloaded_filters,
+                                          width=100, height=28,
+                                          font=("Arial", 9))
+        self.filter_type.pack(side="left", padx=(0, 5))
+        self.filter_type.set("Todos")
 
-
-        # Indicador de canción actual
-        self.current_song_label = ctk.CTkLabel(progress_section,
-                                             text="Cancion actual: Ninguna",
-                                             font=("Arial", 9))
-        self.current_song_label.pack(pady=(0, 5), padx=10, anchor="w")
-
-        # Progreso de canción individual
-        self.song_progress_label = ctk.CTkLabel(progress_section,
-                                              text="Progreso cancion: 0%",
-                                              font=("Arial", 9))
-        self.song_progress_label.pack(pady=(0, 10), padx=10, anchor="w")
+        # Botón para limpiar filtros
+        self.clear_filters_btn = ctk.CTkButton(filter_frame, text="🗑️ Limpiar",
+                                              command=self.clear_downloaded_filters,
+                                              width=70, height=28,
+                                              font=("Arial", 8))
+        self.clear_filters_btn.pack(side="right")
 
         # Panel derecho - URLs y descargas
         print("Creando panel derecho...")
@@ -290,7 +325,12 @@ class MP3FasterFast(ctk.CTk):
         # Campo de URL simple
         self.url_entry = ctk.CTkEntry(input_frame, placeholder_text="https://www.youtube.com/watch?v=...",
                                     height=40, font=("Arial", 11))
-        self.url_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.url_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+
+        # Botón de pegar
+        self.paste_btn = ctk.CTkButton(input_frame, text="📋 PEGAR", command=self.paste_url,
+                                     height=40, width=80, font=("Arial", 10, "bold"))
+        self.paste_btn.pack(side="left", padx=(0, 5))
 
         # Botón de descargar al lado derecho
         self.download_single_btn = ctk.CTkButton(input_frame, text="[DESCARGAR]",
@@ -307,9 +347,15 @@ class MP3FasterFast(ctk.CTk):
 
 
 
-        # SECCIÓN DE DESCARGAS ACTIVAS
-        downloads_section = ctk.CTkFrame(urls_panel, fg_color="#001100", border_width=1, border_color="#00aa00")
-        downloads_section.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        # ===============================
+        # CONTENEDOR HORIZONTAL PARA DESCARGAS
+        # ===============================
+        downloads_container = ctk.CTkFrame(urls_panel, fg_color="transparent")
+        downloads_container.pack(fill="x", pady=(10, 0), padx=15)
+
+        # SECCIÓN DE DESCARGAS ACTIVAS (lado izquierdo)
+        downloads_section = ctk.CTkFrame(downloads_container, fg_color="#001100", border_width=1, border_color="#00aa00")
+        downloads_section.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
         downloads_header = ctk.CTkFrame(downloads_section, fg_color="transparent")
         downloads_header.pack(fill="x", pady=8, padx=10)
@@ -320,12 +366,43 @@ class MP3FasterFast(ctk.CTk):
         ctk.CTkLabel(downloads_header, text="DESCARGAS ACTIVAS",
                     font=("Arial", 14, "bold"), text_color="#00ff00").pack(side="left", padx=(8, 0))
 
-        # Frame para la lista de descargas activas
-        self.active_downloads_frame = ctk.CTkScrollableFrame(downloads_section, height=200)
+        # Frame para la lista de descargas activas (más pequeño)
+        self.active_downloads_frame = ctk.CTkScrollableFrame(downloads_section, height=80)
         self.active_downloads_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         # Diccionario para trackear descargas activas
         self.active_downloads = {}  # url -> widget_info
+
+        # SECCIÓN DE DESCARGADOS (debajo de descargas activas)
+        downloaded_section = ctk.CTkFrame(urls_panel, fg_color="#002200", border_width=3, border_color="#ffaa00")
+        downloaded_section.pack(fill="x", pady=(10, 0), padx=15)
+
+        downloaded_header = ctk.CTkFrame(downloaded_section, fg_color="transparent")
+        downloaded_header.pack(fill="x", pady=8, padx=10)
+
+        ctk.CTkLabel(downloaded_header, text="📚",
+                    font=("Arial", 18, "bold")).pack(side="left")
+
+        ctk.CTkLabel(downloaded_header, text="DESCARGADOS - SECCIÓN FUNCIONANDO",
+                    font=("Arial", 16, "bold"), text_color="#00ff00").pack(side="left", padx=(8, 0))
+
+        # Botón para refrescar
+        refresh_btn = ctk.CTkButton(downloaded_header, text="🔄", width=35, height=30,
+                                  command=self.load_downloaded_files, fg_color="#006600")
+        refresh_btn.pack(side="right", padx=(5, 0))
+
+        # Frame para la lista de descargados (altura aumentada para mejor visibilidad)
+        self.downloaded_frame = ctk.CTkScrollableFrame(downloaded_section, height=500)
+        self.downloaded_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        # Diccionario para trackear items descargados
+        self.downloaded_items = {}
+
+        # Inicializar filtros antes de cargar descargados
+        self.current_filter_type = "Todos"
+
+        # Cargar archivos descargados al iniciar
+        self.load_downloaded_files()
 
         # Panel inferior - Log y Historial
         bottom_panel = ctk.CTkFrame(main_frame)
@@ -636,9 +713,55 @@ class MP3FasterFast(ctk.CTk):
         finally:
             # Rehabilitar botón
             self.after(0, lambda: self.download_btn.configure(state="normal", text="🚀 Iniciar Descargas"))
+    def paste_url(self):
+        """Pegar contenido del portapapeles en el campo de URL"""
+        try:
+            # Usar tkinter para acceder al portapapeles (más confiable)
+            clipboard_content = self.clipboard_get()
+            if clipboard_content and clipboard_content.strip():
+                # Limpiar el campo actual y pegar el contenido
+                self.url_entry.delete(0, "end")
+                self.url_entry.insert(0, clipboard_content.strip())
+                self.log_message(f"[INFO] URL pegada: {clipboard_content[:50]}...")
+                print(f"📋 URL pegada del portapapeles: {clipboard_content[:50]}...")
+            else:
+                self.log_message("[WARNING] Portapapeles vacío o inválido")
+                print("📋 Portapapeles vacío o sin contenido válido")
+        except Exception as e:
+            # Fallback 1: intentar con pyperclip si tkinter falla
+            try:
+                import pyperclip
+                clipboard_content = pyperclip.paste()
+                if clipboard_content and clipboard_content.strip():
+                    self.url_entry.delete(0, "end")
+                    self.url_entry.insert(0, clipboard_content.strip())
+                    self.log_message(f"[INFO] URL pegada (pyperclip): {clipboard_content[:50]}...")
+                    print(f"📋 URL pegada del portapapeles (pyperclip): {clipboard_content[:50]}...")
+                    return
+            except:
+                pass
 
+            # Fallback 2: usar PowerShell para acceder al portapapeles de Windows
+            try:
+                import subprocess
+                result = subprocess.run(
+                    ["powershell", "-Command", "Get-Clipboard"],
+                    capture_output=True, text=True, timeout=3
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    clipboard_content = result.stdout.strip()
+                    self.url_entry.delete(0, "end")
+                    self.url_entry.insert(0, clipboard_content)
+                    self.log_message(f"[INFO] URL pegada (PowerShell): {clipboard_content[:50]}...")
+                    print(f"📋 URL pegada del portapapeles (PowerShell): {clipboard_content[:50]}...")
+                    return
+            except:
+                pass
 
-
+            # Si todos los métodos fallan
+            self.log_message(f"[ERROR] Error al pegar: {e}")
+            print(f"❌ Error al pegar del portapapeles: {e}")
+            print("💡 Tip: Copia una URL primero (Ctrl+C) y luego haz clic en 📋 PEGAR")
 
     def download_single_url(self):
         """Descargar una sola URL con indicadores visuales"""
@@ -724,7 +847,12 @@ class MP3FasterFast(ctk.CTk):
                                       values=quality_options,
                                       width=80, height=25,
                                       font=("Arial", 8))
-        quality_combo.set(self.default_quality)
+
+        # Usar la calidad por defecto si es compatible, sino usar "Mejor"
+        if self.default_quality in quality_options:
+            quality_combo.set(self.default_quality)
+        else:
+            quality_combo.set("Mejor")
         quality_combo.pack(side="left")
 
         # Barra de progreso
@@ -786,6 +914,16 @@ class MP3FasterFast(ctk.CTk):
                 title = video_info.get('title', 'Título desconocido')
                 print(f"🔥 [TITLE] Título obtenido: {title[:50]}{'...' if len(title) > 50 else ''}")
                 self.log_message(f"[TITLE] Título obtenido: {title[:50]}{'...' if len(title) > 50 else ''}")
+
+                # Almacenar calidades disponibles si existen
+                if 'available_qualities' in video_info and video_info['available_qualities']:
+                    self.available_qualities = video_info['available_qualities']
+                    print(f"🔥 [QUALITY] Calidades disponibles: {self.available_qualities}")
+                    self.log_message(f"[QUALITY] Calidades disponibles: {', '.join(self.available_qualities)}")
+
+                    # Actualizar opciones de calidad en la UI
+                    self.after(0, lambda: self._update_quality_options())
+
                 # Actualizar título
                 self.after(0, lambda: widget_info['title'].configure(text=title))
                 print("🔥 [DEBUG] Título actualizado en widget")
@@ -838,19 +976,27 @@ class MP3FasterFast(ctk.CTk):
                     # Fallback por defecto
                     download_format = "mp3_320"
                 self.log_message(f"[AUDIO] Configurado para MP3 {quality} -> {download_format}")
-            elif download_type == "🎬 Video (MP4)":
+            elif download_type == "[MP4] Video":
                 source_type = "url"
-                download_format = "video"
+                download_format = "video_mp4"
                 # Usar calidad seleccionada
                 if quality != "Mejor":
-                    download_format = f"video_{quality.lower()}"
-                    self.log_message(f"[VIDEO] Configurado para video {quality}")
+                    download_format = f"video_mp4_{quality.lower()}"
+                    self.log_message(f"[VIDEO] Configurado para video MP4 {quality}")
                 else:
-                    self.log_message("[VIDEO] Configurado para video mejor calidad")
+                    self.log_message("[VIDEO] Configurado para video MP4 mejor calidad")
+            elif download_type == "[PLAYLIST MP3]":
+                source_type = "playlist"
+                download_format = "playlist_mp3"
+                self.log_message("[PLAYLIST] Configurado para playlist MP3")
+            elif download_type == "[PLAYLIST MP4]":
+                source_type = "playlist"
+                download_format = "playlist_mp4"
+                self.log_message("[PLAYLIST] Configurado para playlist MP4")
             else:
                 source_type = "url"
-                download_format = "mp3"
-                self.log_message("[AUDIO] Configurado por defecto a MP3")
+                download_format = "mp3_320"
+                self.log_message("[DEFAULT] Configurado por defecto a MP3 320kbps")
 
             # Actualizar progreso
             print("🔥 [DEBUG] Actualizando progreso a 20%...")
@@ -865,11 +1011,14 @@ class MP3FasterFast(ctk.CTk):
             # Verificar que el widget se actualizó
             self.after(100, lambda: self.log_message(f"[DEBUG] Estado del widget después de actualización: {widget_info['status'].cget('text') if 'status' in widget_info else 'NO STATUS'}"))
 
-            # Descargar
-            print("🔥 [DOWNLOAD] Llamando a downloader.download_video...")
+            # Descargar - Crear nueva instancia del downloader para evitar problemas de SQLite con threads
+            print("🔥 [DOWNLOAD] Creando nueva instancia de downloader para thread...")
             print(f"🔥 [DOWNLOAD] Parámetros: url={url[:30]}..., formato={download_format}, tipo={source_type}")
             try:
-                success = self.downloader.download_video(url, download_format, source_type, video_info)
+                # Crear nueva instancia del downloader en este thread
+                from downloader import Downloader
+                thread_downloader = Downloader()
+                success = thread_downloader.download_video(url, download_format, source_type, video_info)
                 print(f"🔥 [DOWNLOAD] Método retornó: {success}")
                 self.log_message(f"[STATUS] Resultado de descarga: {'[OK] Éxito' if success else '[CANCEL] Falló'}")
             except Exception as e:
@@ -883,6 +1032,17 @@ class MP3FasterFast(ctk.CTk):
                 self.after(0, lambda: widget_info['status'].configure(text="✅ ¡Completado!", text_color="#00ff00"))
                 self.after(0, lambda: widget_info['frame'].configure(fg_color="#002200", border_color="#00ff00"))  # Fondo verde
                 self.log_message(f"[OK] Descarga completada: {url[:50]}...")
+
+                # Actualizar estadísticas y sección descargados
+                self.after(0, self.update_statistics)
+                self.after(500, self.load_downloaded_files)
+
+                # Actualizar sección "Descargados" inmediatamente
+                self.after(500, self.load_downloaded_files)  # Pequeño delay para asegurar que la BD esté actualizada
+
+                # Eliminar widget de descargas activas después de 3 segundos
+                self.after(3000, lambda: self.remove_completed_download(url))
+
             else:
                 # Error
                 self.after(0, lambda: widget_info['progress'].set(0))
@@ -897,8 +1057,18 @@ class MP3FasterFast(ctk.CTk):
             # Re-habilitar botón
             self.after(0, lambda: self.download_single_btn.configure(state="normal", text="🚀 DESCARGAR"))
 
-            # Recargar historial
-            self.after(0, self.load_history)
+    def remove_completed_download(self, url):
+        """Eliminar widget de descarga completada de la sección activa"""
+        if url in self.active_downloads:
+            widget_info = self.active_downloads[url]
+            try:
+                # Eliminar el frame del widget
+                widget_info['frame'].destroy()
+                # Remover de la lista de descargas activas
+                del self.active_downloads[url]
+                self.log_message(f"[CLEANUP] Widget de descarga completada eliminado: {url[:30]}...")
+            except Exception as e:
+                self.log_message(f"[ERROR] Error eliminando widget completado: {str(e)}")
 
     def cancel_download(self, url):
         """Cancelar una descarga en progreso"""
@@ -941,7 +1111,17 @@ class MP3FasterFast(ctk.CTk):
 
         def extract_info():
             try:
-                self.log_message("[SEARCH] Consultando información del video...")
+                # LIMPIAR URL: Para playlists completas, mantener la URL completa
+                # Para videos individuales, limpiar parámetros extra
+                if 'list=' in url and 'v=' in url:
+                    # Es una URL de video dentro de playlist - mantener completa para que yt-dlp pueda procesar la playlist
+                    clean_url = url
+                else:
+                    # URL normal - limpiar parámetros extra
+                    clean_url = url.split('&')[0]  # Remover todo después del primer '&'
+
+                self.log_message(f"[SEARCH] Consultando información del video...")
+                self.log_message(f"[URL] URL limpia: {clean_url}")
                 import yt_dlp
 
                 ydl_opts = {
@@ -954,13 +1134,30 @@ class MP3FasterFast(ctk.CTk):
 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     self.log_message("[CONNECT] Extrayendo información del video...")
-                    info = ydl.extract_info(url, download=False)
+                    info = ydl.extract_info(clean_url, download=False)
+
+                    # Extraer formatos disponibles para video
+                    formats = info.get('formats', [])
+                    available_qualities = []
+
+                    # Procesar formatos de video (MP4)
+                    for fmt in formats:
+                        if fmt.get('vcodec') != 'none' and fmt.get('acodec') != 'none':  # Video con audio
+                            height = fmt.get('height')
+                            if height and height >= 360:  # Solo resoluciones decentes
+                                quality_str = f"{height}p"
+                                if quality_str not in available_qualities:
+                                    available_qualities.append(quality_str)
+
+                    # Ordenar calidades de mayor a menor
+                    available_qualities.sort(key=lambda x: int(x[:-1]), reverse=True)
 
                     video_info = {
                         'title': info.get('title', 'Sin título'),
                         'thumbnail': info.get('thumbnail'),
                         'duration': info.get('duration'),
-                        'uploader': info.get('uploader')
+                        'uploader': info.get('uploader'),
+                        'available_qualities': available_qualities
                     }
 
                     result['info'] = video_info
@@ -1116,20 +1313,45 @@ class MP3FasterFast(ctk.CTk):
     def _get_quality_options(self):
         """Obtener opciones de calidad según formato actual"""
         download_type = self.download_type.get()
+        print(f"🔍 DEBUG: Tipo de descarga actual: '{download_type}'")
+
         if "MP3" in download_type:
+            print("🎵 DEBUG: Mostrando opciones MP3 (kbps)")
             return ["Mejor", "320kbps", "256kbps", "192kbps", "128kbps"]
         else:
-            return ["Mejor", "1080p", "720p", "480p", "360p"]
+            # Para MP4, usar calidades disponibles del video si existen
+            if self.available_qualities and "MP4" in download_type:
+                print(f"🎬 DEBUG: Usando calidades del video: {self.available_qualities}")
+                # Agregar "Mejor" al inicio si no está
+                qualities = self.available_qualities.copy()
+                if "Mejor" not in qualities:
+                    qualities.insert(0, "Mejor")
+                return qualities
+            else:
+                print("🎬 DEBUG: Mostrando opciones MP4 por defecto (resolución)")
+                return ["Mejor", "1080p", "720p", "480p", "360p"]
 
-    def _update_quality_options(self, event=None):
+    def _update_quality_options(self, selected_value=None):
         """Actualizar opciones de calidad cuando cambia el formato"""
+        print(f"🔄 DEBUG: Actualizando opciones de calidad - Selección: '{selected_value}'")
+
+        # Resetear calidades disponibles cuando cambie el formato
+        if selected_value and "MP3" in selected_value:
+            self.available_qualities = []
+
         new_options = self._get_quality_options()
+        print(f"📋 DEBUG: Nuevas opciones: {new_options}")
+
         self.default_quality_combo.configure(values=new_options)
 
         # Si la calidad actual no es válida para el nuevo formato, resetear
         current_quality = self.default_quality_combo.get()
+        print(f"🎯 DEBUG: Calidad actual: '{current_quality}'")
+
         if current_quality not in new_options:
+            print("🔄 DEBUG: Reseteando calidad a 'Mejor'")
             self.default_quality_combo.set("Mejor")
+            self.default_quality = "Mejor"  # También actualizar la variable
 
 
     def load_history(self):
@@ -1218,11 +1440,13 @@ class MP3FasterFast(ctk.CTk):
                 full_path = Path.cwd() / "downloads" / location
 
                 if full_path.exists() and full_path.suffix.lower() == '.mp3':
-                    try:
-                        MetadataEditor(str(full_path))
-                        self.log_message(f"Editando metadatos: {title}")
-                    except Exception as e:
-                        messagebox.showerror("Error", f"No se pudo abrir el editor: {str(e)}")
+                    # MetadataEditor deshabilitado temporalmente
+                    # try:
+                    #     MetadataEditor(str(full_path))
+                    #     self.log_message(f"Editando metadatos: {title}")
+                    # except Exception as e:
+                    #     messagebox.showerror("Error", f"No se pudo abrir el editor: {str(e)}")
+                    messagebox.showinfo("Información", f"Archivo MP3 listo: {title}")
                 else:
                     messagebox.showwarning("Advertencia", "Archivo MP3 no encontrado")
 
@@ -1231,6 +1455,440 @@ class MP3FasterFast(ctk.CTk):
         if self.db:
             self.db.close()
         self.destroy()
+
+    def update_statistics(self):
+        """Actualizar estadísticas de descargas en tiempo real"""
+        try:
+            # Obtener estadísticas de la base de datos
+            downloads = self.db.get_all_downloads()
+
+            total_downloads = len(downloads)
+            audio_count = sum(1 for d in downloads if d[4] == 'mp3')  # type column (índice 4)
+            video_count = sum(1 for d in downloads if d[4] == 'video')  # type column (índice 4)
+
+            # Actualizar labels
+            self.total_stats_label.configure(text=f"📊 Total: {total_downloads}")
+            self.audio_stats_label.configure(text=f"🎵 Audio: {audio_count} MP3")
+            self.video_stats_label.configure(text=f"🎬 Video: {video_count} MP4")
+
+        except Exception as e:
+            print(f"Error actualizando estadísticas: {e}")
+            # Valores por defecto en caso de error
+            self.total_stats_label.configure(text="📊 Total: Error")
+            self.audio_stats_label.configure(text="🎵 Audio: Error")
+            self.video_stats_label.configure(text="🎬 Video: Error")
+
+    def apply_downloaded_filters(self, filter_value=None):
+        """Aplicar filtros a la sección descargados"""
+        if filter_value:
+            self.current_filter_type = filter_value
+        else:
+            self.current_filter_type = self.filter_type.get()
+
+        print(f"🎯 Aplicando filtro: {self.current_filter_type}")
+        self.load_downloaded_files()
+
+    def clear_downloaded_filters(self):
+        """Limpiar todos los filtros de descargados"""
+        self.current_filter_type = "Todos"
+        self.filter_type.set("Todos")
+        print("🗑️ Filtros limpiados")
+        self.load_downloaded_files()
+
+    def load_downloaded_files(self):
+        """Cargar y mostrar archivos descargados"""
+        try:
+            # Limpiar items anteriores
+            for widget in self.downloaded_frame.winfo_children():
+                widget.destroy()
+            self.downloaded_items.clear()
+
+            # Obtener descargas de la BD
+            db = Database()
+            downloads = db.get_all_downloads()
+            db.close()
+
+            if not downloads:
+                # Mensaje cuando no hay descargas
+                no_items_label = ctk.CTkLabel(self.downloaded_frame,
+                                            text="📭 No hay archivos descargados",
+                                            font=("Arial", 12), text_color="#666666")
+                no_items_label.pack(pady=20)
+                return
+
+            # Filtrar solo descargas con archivos que existen físicamente
+            valid_downloads = []
+            orphaned_ids = []
+
+            for download in downloads:
+                download_id = download[0]
+                file_path = download[6]  # file_path está en la posición 6
+                if file_path and os.path.exists(file_path):
+                    valid_downloads.append(download)
+                else:
+                    orphaned_ids.append(download_id)
+
+            # Eliminar registros huérfanos de la BD
+            if orphaned_ids:
+                # Reabrir conexión para eliminar
+                db = Database()
+                for orphan_id in orphaned_ids:
+                    db.remove_download(orphan_id)
+                db.close()
+                self.log_message(f"Eliminados {len(orphaned_ids)} registros huérfanos de archivos inexistentes")
+
+            if not valid_downloads:
+                # Mensaje cuando no hay descargas válidas
+                no_items_label = ctk.CTkLabel(self.downloaded_frame,
+                                            text="📭 No hay archivos descargados válidos",
+                                            font=("Arial", 12), text_color="#666666")
+                no_items_label.pack(pady=20)
+                return
+
+            # Aplicar filtros
+            if self.current_filter_type != "Todos":
+                if self.current_filter_type == "MP3":
+                    filtered_downloads = [d for d in valid_downloads if d[4] == 'mp3']  # type column (índice 4)
+                elif self.current_filter_type == "MP4":
+                    filtered_downloads = [d for d in valid_downloads if d[4] == 'video']  # type column (índice 4)
+                else:
+                    filtered_downloads = valid_downloads
+            else:
+                filtered_downloads = valid_downloads
+
+            # Ordenar por fecha descendente (más recientes primero)
+            filtered_downloads.sort(key=lambda x: x[7] if len(x) > 7 else "", reverse=True)
+
+            # Actualizar estadísticas después de filtrar
+            self.update_statistics()
+
+            for download in filtered_downloads:
+                self.create_downloaded_item(download)
+
+        except Exception as e:
+            print(f"Error cargando archivos descargados: {e}")
+            self.log_message(f"Error cargando descargados: {e}")
+
+    def create_downloaded_item(self, download_data):
+        """Crear item para un archivo descargado"""
+        try:
+            # Extraer datos (formato de la BD: id, url, title, artist, type, source, file_path, date)
+            download_id, url, title, artist, download_type, source, file_path = download_data[:7]
+
+            # Crear frame para este item (altura fija para controlar el layout)
+            item_frame = ctk.CTkFrame(self.downloaded_frame, fg_color="#1a1a1a", border_width=1, border_color="#555555", height=100)
+            item_frame.pack(fill="x", padx=5, pady=2)
+
+            # Contenedor horizontal
+            content_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
+            content_frame.pack(fill="x", padx=8, pady=6)
+
+            # Contenedor para la portada con marco (altura fija, sin expansión)
+            cover_container = ctk.CTkFrame(content_frame, fg_color="#1a1a1a", border_width=2, border_color="#555555", corner_radius=8, height=90, width=100)
+            cover_container.pack(side="left", padx=(0, 15), pady=5)
+
+            # Crear label de portada directamente en el contenedor
+            cover_label, cover_info = self.get_album_cover(title, file_path, parent=cover_container)
+            cover_label.pack(padx=5, pady=5)
+
+            # Información del archivo (vertical a la derecha de la portada)
+            info_container = ctk.CTkFrame(content_frame, fg_color="transparent")
+            info_container.pack(side="left", fill="both", expand=True)
+
+            # Marco para toda la información del archivo
+            info_frame = ctk.CTkFrame(info_container, fg_color="#0d0d0d", border_width=1, border_color="#444444", corner_radius=6)
+            info_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+            # Contenedor interno con padding
+            inner_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+            inner_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+            # Layout horizontal: [Datos expandiendo] [Botones a la derecha]
+            content_layout = ctk.CTkFrame(inner_frame, fg_color="transparent")
+            content_layout.pack(fill="both", expand=True)
+
+            # Contenedor de datos (usa todo el espacio disponible menos los botones)
+            data_container = ctk.CTkFrame(content_layout, fg_color="transparent")
+            data_container.pack(side="left", fill="both", expand=True)
+
+            # Título del vídeo (arriba, más prominente)
+            title_label = ctk.CTkLabel(data_container, text=title[:80] + "..." if len(title) > 80 else title,
+                                     font=("Arial", 14, "bold"), text_color="#ffffff", anchor="w")
+            title_label.pack(fill="x", pady=(0, 5))
+
+            # URL del vídeo (debajo del título)
+            url_text = f"youtube.com/watch?v={url.split('=')[-1][:11]}" if url and "=" in url else url[:60] if url else "URL desconocida"
+            url_label = ctk.CTkLabel(data_container, text=f"🔗 {url_text}",
+                                   font=("Arial", 10), text_color="#cccccc", anchor="w")
+            url_label.pack(fill="x", pady=(0, 8))
+
+            # Información adicional (artista, tipo, tamaño, portada, etc.)
+            info_lines = []
+
+            # Artista
+            if artist and artist != 'Artista desconocido':
+                info_lines.append(f"👤 {artist}")
+
+            # Tipo de descarga
+            info_lines.append(f"📁 {download_type.upper()}")
+
+            # Tamaño del archivo si existe
+            if file_path and os.path.exists(file_path):
+                try:
+                    size_mb = os.path.getsize(file_path) / (1024*1024)
+                    info_lines.append(f"💾 {size_mb:.1f} MB")
+                except:
+                    pass
+
+            # Información de portada
+            if cover_info.get('has_embedded'):
+                info_lines.append(f"🖼️ Portada embebida ({cover_info.get('embedded_size', 0)} bytes)")
+            elif cover_info.get('exists'):
+                info_lines.append("📷 Sin portada")
+            else:
+                info_lines.append("❌ Archivo no existe")
+
+            # Mostrar información adicional (usa todo el ancho)
+            if info_lines:
+                additional_info = " • ".join(info_lines)
+                info_label = ctk.CTkLabel(data_container, text=additional_info,
+                                        font=("Arial", 9), text_color="#bbbbbb", anchor="w",
+                                        wraplength=0)  # Sin límite de ancho, usa todo el espacio
+                info_label.pack(fill="x", pady=(0, 5))
+
+            # Botones compactos a la derecha
+            buttons_container = ctk.CTkFrame(content_layout, fg_color="transparent")
+            buttons_container.pack(side="right", padx=(10, 0))
+
+            # Verificar si el archivo existe
+            file_exists = file_path and os.path.exists(file_path)
+
+            # Contenedor vertical para botones (compacto)
+            btn_container = ctk.CTkFrame(buttons_container, fg_color="transparent")
+            btn_container.pack()
+
+            # Botón abrir carpeta (vertical compacto)
+            if file_exists:
+                folder_btn = ctk.CTkButton(btn_container, text="📂 Abrir\ncarpeta", width=80, height=45,
+                                         command=lambda: self.open_file_location(file_path),
+                                         fg_color="#555555", hover_color="#777777",
+                                         font=("Arial", 8, "bold"))
+            else:
+                folder_btn = ctk.CTkButton(btn_container, text="📂 No\nexiste", width=80, height=45,
+                                         state="disabled", fg_color="#333333",
+                                         font=("Arial", 7))
+            folder_btn.pack(pady=(0, 2))
+
+            # Botón reproducir con VLC (vertical compacto)
+            if file_exists:
+                play_btn = ctk.CTkButton(btn_container, text="▶️\nReproducir", width=80, height=45,
+                                       command=lambda: self.play_with_vlc(file_path),
+                                       fg_color="#008800", hover_color="#00aa00",
+                                       font=("Arial", 8, "bold"))
+            else:
+                play_btn = ctk.CTkButton(btn_container, text="▶️ No\ndisponible", width=80, height=45,
+                                       state="disabled", fg_color="#004400",
+                                       font=("Arial", 7))
+            play_btn.pack(pady=(0, 2))
+
+            # Botón eliminar (vertical compacto)
+            delete_btn = ctk.CTkButton(btn_container, text="🗑️\nEliminar", width=80, height=45,
+                                     command=lambda: self.delete_download_with_confirmation(download_id, title, file_path),
+                                     fg_color="#880000", hover_color="#aa0000",
+                                     font=("Arial", 8, "bold"))
+            delete_btn.pack(pady=(0, 0))
+
+        except Exception as e:
+            print(f"Error creando item descargado: {e}")
+
+    def get_album_cover(self, title, file_path, parent=None):
+        """Obtener portada del archivo MP3/MP4 con información detallada"""
+        try:
+            from mutagen.mp3 import MP3
+            from mutagen.id3 import APIC
+            from PIL import Image
+            import io
+            import os
+
+            # Información de debug
+            cover_info = {
+                'exists': False,
+                'has_embedded': False,
+                'embedded_size': 0,
+                'mime_type': None,
+                'file_type': 'unknown'
+            }
+
+            if file_path and os.path.exists(file_path):
+                cover_info['exists'] = True
+
+                # Determinar tipo de archivo
+                if file_path.endswith('.mp3'):
+                    cover_info['file_type'] = 'mp3'
+                elif file_path.endswith('.mp4'):
+                    cover_info['file_type'] = 'mp4'
+
+                # Para MP3, intentar extraer portada embebida
+                if file_path.endswith('.mp3'):
+                    cover_info['exists'] = True
+
+                    try:
+                        audio = MP3(file_path)
+                        if audio.tags:
+                            apic_frames = audio.tags.getall('APIC')
+                            if apic_frames:
+                                cover_info['has_embedded'] = True
+                                apic = apic_frames[0]
+                                cover_info['embedded_size'] = len(apic.data)
+                                cover_info['mime_type'] = apic.mime
+
+                                # Crear imagen desde bytes embebidos
+                                img = Image.open(io.BytesIO(apic.data))
+
+                                # Hacer thumbnail manteniendo proporción
+                                img.thumbnail((80, 80), Image.Resampling.LANCZOS)
+
+                                # Crear imagen cuadrada con padding si es necesario
+                                if img.size[0] != img.size[1]:
+                                    # Crear imagen cuadrada
+                                    size = max(img.size)
+                                    new_img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+                                    # Centrar la imagen original
+                                    x = (size - img.size[0]) // 2
+                                    y = (size - img.size[1]) // 2
+                                    if img.mode == 'P':
+                                        img = img.convert('RGBA')
+                                    new_img.paste(img, (x, y), img if img.mode == 'RGBA' else None)
+                                    img = new_img
+
+                                # Convertir a CTkImage
+                                from customtkinter import CTkImage
+                                ctk_img = CTkImage(img, size=(80, 80))
+
+                                label = ctk.CTkLabel(parent or None, image=ctk_img, text="")
+                                return label, cover_info
+                    except Exception as e:
+                        print(f"Error leyendo portada MP3: {e}")
+
+            # Placeholder con información detallada
+            if not cover_info['exists']:
+                # Archivo no existe
+                placeholder = ctk.CTkLabel(parent or None, text="❌", font=("Arial", 40, "bold"), width=80, height=80, fg_color="#440000", corner_radius=10)
+                cover_info['status'] = 'Archivo no encontrado'
+            elif cover_info['file_type'] == 'mp4':
+                # Para archivos MP4, mostrar icono de video
+                placeholder = ctk.CTkLabel(parent or None, text="🎬", font=("Arial", 40), width=80, height=80, fg_color="#004400", corner_radius=10)
+                cover_info['status'] = 'Video MP4'
+            elif not cover_info['has_embedded']:
+                # Archivo MP3 existe pero sin portada
+                placeholder = ctk.CTkLabel(parent or None, text="🎵", font=("Arial", 40), width=80, height=80, fg_color="#333333", corner_radius=10)
+                cover_info['status'] = 'Sin portada embebida'
+            else:
+                # Fallback
+                placeholder = ctk.CTkLabel(parent or None, text="🎵", font=("Arial", 40), width=80, height=80, fg_color="#333333", corner_radius=10)
+                cover_info['status'] = 'Portada no disponible'
+
+            return placeholder, cover_info
+
+        except Exception as e:
+            print(f"Error crítico en get_album_cover: {e}")
+            placeholder = ctk.CTkLabel(parent or None, text="❌", font=("Arial", 32), width=60, height=60, fg_color="#440000", corner_radius=8)
+            return placeholder, {'exists': False, 'has_embedded': False, 'status': 'Error'}
+
+    def open_file_location(self, file_path):
+        """Abrir la ubicación del archivo en el explorador"""
+        try:
+            import os
+            import subprocess
+            import platform
+
+            if file_path and os.path.exists(file_path):
+                directory = os.path.dirname(file_path)
+
+                if platform.system() == "Windows":
+                    subprocess.run(["explorer", directory])
+                elif platform.system() == "Darwin":  # macOS
+                    subprocess.run(["open", directory])
+                else:  # Linux
+                    subprocess.run(["xdg-open", directory])
+
+                self.log_message(f"Ubicación abierta: {directory}")
+            else:
+                self.log_message("Archivo no encontrado")
+        except Exception as e:
+            self.log_message(f"Error abriendo ubicación: {e}")
+
+    def play_with_vlc(self, file_path):
+        """Reproducir archivo con VLC"""
+        try:
+            import os
+            import subprocess
+
+            if file_path and os.path.exists(file_path):
+                # Intentar abrir con VLC
+                vlc_paths = [
+                    "C:\\Program Files\\VideoLAN\\VLC\\vlc.exe",
+                    "C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe",
+                    "/usr/bin/vlc",
+                    "/usr/local/bin/vlc",
+                    "vlc"  # En PATH
+                ]
+
+                vlc_found = False
+                for vlc_path in vlc_paths:
+                    try:
+                        subprocess.run([vlc_path, file_path], check=True)
+                        vlc_found = True
+                        self.log_message(f"Reproduciendo con VLC: {os.path.basename(file_path)}")
+                        break
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        continue
+
+                if not vlc_found:
+                    # Fallback: usar el programa predeterminado del sistema
+                    if os.name == 'nt':  # Windows
+                        os.startfile(file_path)
+                    else:  # Unix-like
+                        subprocess.run(['xdg-open', file_path])
+                    self.log_message(f"Reproduciendo con programa predeterminado: {os.path.basename(file_path)}")
+            else:
+                self.log_message("Archivo no encontrado para reproducir")
+        except Exception as e:
+            self.log_message(f"Error reproduciendo archivo: {e}")
+
+    def delete_download_with_confirmation(self, download_id, title, file_path):
+        """Eliminar descarga con confirmación"""
+        try:
+            from tkinter import messagebox
+
+            # Confirmación de eliminación
+            result = messagebox.askyesno(
+                "Confirmar eliminación",
+                f"¿Estás seguro de que quieres eliminar?\n\n{title}\n\nEsta acción no se puede deshacer.",
+                icon="warning"
+            )
+
+            if result:
+                # Eliminar de la base de datos
+                db = Database()
+                db.remove_download(download_id)
+                db.close()
+
+                # Eliminar archivo físico si existe
+                import os
+                if file_path and os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                        self.log_message(f"Archivo eliminado: {os.path.basename(file_path)}")
+                    except Exception as e:
+                        self.log_message(f"Error eliminando archivo: {e}")
+
+                # Recargar la lista
+                self.load_downloaded_files()
+                self.log_message(f"Descarga eliminada: {title}")
+
+        except Exception as e:
+            self.log_message(f"Error eliminando descarga: {e}")
 
 if __name__ == "__main__":
     # Logging inicial detallado

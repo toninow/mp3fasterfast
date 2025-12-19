@@ -102,7 +102,7 @@ class Downloader:
             self.log(f"Error aplicando portada MP4: {str(e)}")
             return False
 
-    def apply_thumbnail_to_file(self, url, download_path, download_type, video_info=None):
+    def apply_thumbnail_to_file(self, url, file_path, download_type, video_info=None):
         """Aplicar thumbnail al archivo descargado"""
         try:
             print(f"🔥 [THUMBNAIL] Iniciando apply_thumbnail_to_file para {url[:30]}...")
@@ -119,55 +119,105 @@ class Downloader:
                 print("🔥 [THUMBNAIL] Info del video no válida")
                 return
 
-            thumbnail_url = info.get('thumbnail')
-            print(f"🔥 [THUMBNAIL] Thumbnail URL: {thumbnail_url}")
-            if not thumbnail_url:
-                print("🔥 [THUMBNAIL] No hay thumbnail URL")
-                self.log("No se encontró thumbnail para este video")
-                return
-
-            # Determinar nombre del archivo descargado
+            # Determinar nombre del archivo descargado ANTES de procesar thumbnails
             title = info.get('title', 'Unknown')
             print(f"🔥 [THUMBNAIL] Título del archivo: {title}")
-            if download_type == "mp3":
-                file_path = download_path / f"{title}.mp3"
-                is_mp3 = True
-            else:
-                file_path = download_path / f"{title}.mp4"
-                is_mp3 = False
 
-            print(f"🔥 [THUMBNAIL] Buscando archivo: {file_path}")
+            # Buscar thumbnail en múltiples campos posibles
+            thumbnail_url = info.get('thumbnail')
+
+            # Si no hay thumbnail directo, buscar en la lista de thumbnails
+            if not thumbnail_url and info.get('thumbnails'):
+                # Buscar el thumbnail de mejor calidad (preferir JPG sobre WEBP, y mayor resolución)
+                thumbnails = info.get('thumbnails', [])
+                if thumbnails:
+                    # Filtrar primero por JPG (mejor calidad que WEBP)
+                    jpg_thumbnails = [t for t in thumbnails if t.get('url', '').endswith('.jpg')]
+                    if jpg_thumbnails:
+                        # De los JPG, tomar el de mayor resolución
+                        jpg_thumbnails.sort(key=lambda x: x.get('height', 0) * x.get('width', 0), reverse=True)
+                        thumbnail_url = jpg_thumbnails[0].get('url')
+                    else:
+                        # Si no hay JPG, tomar el mejor WEBP
+                        thumbnails.sort(key=lambda x: x.get('height', 0) * x.get('width', 0), reverse=True)
+                        thumbnail_url = thumbnails[0].get('url')
+
+            print(f"🔥 [THUMBNAIL] Thumbnail URL encontrada: {thumbnail_url}")
+            if thumbnail_url:
+                print(f"🔥 [THUMBNAIL] Tipo: {'JPG' if thumbnail_url.endswith('.jpg') else 'WEBP'}")
+                # Buscar resolución aproximada
+                if info.get('thumbnails'):
+                    for t in info.get('thumbnails', []):
+                        if t.get('url') == thumbnail_url:
+                            w, h = t.get('width', '?'), t.get('height', '?')
+                            print(f"🔥 [THUMBNAIL] Resolución: {w}x{h}")
+                            break
+
+            if not thumbnail_url:
+                print("🔥 [THUMBNAIL] No hay thumbnail URL disponible, creando imagen genérica")
+                print(f"🔥 [THUMBNAIL] Total thumbnails disponibles: {len(info.get('thumbnails', []))}")
+                # Crear imagen genérica basada en el título
+                temp_path = self.create_generic_thumbnail(title)
+                if not temp_path:
+                    self.log("No se pudo crear thumbnail genérico")
+                    return
+                print("🔥 [THUMBNAIL] Imagen genérica creada")
+                thumbnail_url = "generic"  # Marcar como genérico para no intentar descargarlo
+            else:
+                # Descargar thumbnail a archivo temporal
+                import tempfile
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
+                    temp_path = temp_file.name
+
+                if not self.download_thumbnail(thumbnail_url, temp_path):
+                    self.log("Error descargando thumbnail")
+                    return
+            # Determinar el archivo objetivo
+            if file_path is None:
+                # Buscar el archivo descargado más reciente
+                from utils import get_download_path
+                download_path = get_download_path("video" if download_type in ["video", "video_mp4", "playlist_mp4"] else "mp3", "url")
+                expected_extension = 'mp3' if download_type.startswith('mp3') else 'mp4'
+                downloaded_files = list(download_path.glob(f"*.{expected_extension}"))
+
+                if downloaded_files:
+                    file_path = max(downloaded_files, key=lambda f: f.stat().st_mtime)
+                    print(f"🔥 [THUMBNAIL] Archivo encontrado dinámicamente: {file_path}")
+                else:
+                    print("🔥 [THUMBNAIL] Ningún archivo descargado encontrado")
+                    self.log("Archivo descargado no encontrado")
+                    return
+            else:
+                print(f"🔥 [THUMBNAIL] Archivo objetivo: {file_path}")
+
             if not file_path.exists():
                 print("🔥 [THUMBNAIL] Archivo no encontrado")
                 self.log("Archivo descargado no encontrado")
                 return
 
-            # Descargar thumbnail a archivo temporal
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
-                temp_path = temp_file.name
+            # Determinar si es MP3 o MP4 basado en la extensión
+            is_mp3 = file_path.suffix.lower() == '.mp3'
+            print(f"🔥 [THUMBNAIL] Detectado como {'audio MP3' if is_mp3 else 'video MP4'}")
 
-            if self.download_thumbnail(thumbnail_url, temp_path):
-                # Aplicar thumbnail según tipo de archivo
-                if is_mp3:
-                    success = self.apply_thumbnail_to_mp3(file_path, temp_path)
-                else:
-                    success = self.apply_thumbnail_to_mp4(file_path, temp_path)
-
-                if success:
-                    self.log("Portada aplicada exitosamente")
-                else:
-                    self.log("Error aplicando portada")
+            # Aplicar thumbnail según tipo de archivo
+            if is_mp3:
+                success = self.apply_thumbnail_to_mp3(str(file_path), temp_path)
             else:
-                self.log("Error descargando thumbnail")
+                success = self.apply_thumbnail_to_mp4(str(file_path), temp_path)
 
-            # Limpiar archivo temporal
-            try:
-                import os
-                os.unlink(temp_path)
-                print("🔥 [THUMBNAIL] Archivo temporal limpiado")
-            except:
-                pass
+            if success:
+                self.log("Portada aplicada exitosamente")
+            else:
+                self.log("Error aplicando portada")
+
+            # Limpiar archivo temporal (solo si no es genérico)
+            if thumbnail_url:
+                try:
+                    import os
+                    os.unlink(temp_path)
+                    print("🔥 [THUMBNAIL] Archivo temporal limpiado")
+                except:
+                    pass
 
             print("🔥 [THUMBNAIL] apply_thumbnail_to_file completado exitosamente")
 
@@ -175,16 +225,69 @@ class Downloader:
             print(f"🔥 [THUMBNAIL] ERROR en apply_thumbnail_to_file: {e}")
             self.log(f"Error en apply_thumbnail_to_file: {str(e)}")
 
+    def create_generic_thumbnail(self, title):
+        """Crear thumbnail genérico basado en el título"""
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            import tempfile
+            import os
+
+            # Crear imagen base 640x640 (YouTube standard)
+            img = Image.new('RGB', (640, 640), color='#1a1a1a')
+            draw = ImageDraw.Draw(img)
+
+            # Intentar usar fuente del sistema, fallback a default
+            try:
+                font = ImageFont.truetype("arial.ttf", 60)
+            except:
+                font = ImageFont.load_default()
+
+            # Obtener iniciales del título
+            words = title.split()[:3]  # Máximo 3 palabras
+            initials = ''.join(word[0].upper() for word in words if word)
+
+            # Calcular posición centrada
+            bbox = draw.textbbox((0, 0), initials, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (640 - text_width) // 2
+            y = (640 - text_height) // 2
+
+            # Dibujar texto
+            draw.text((x, y), initials, fill='#ffffff', font=font)
+
+            # Dibujar borde decorativo
+            draw.rectangle([20, 20, 620, 620], outline='#ff4444', width=4)
+
+            # Crear archivo temporal
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_file:
+                temp_path = temp_file.name
+                img.save(temp_path, 'JPEG', quality=90)
+
+            return temp_path
+
+        except Exception as e:
+            self.log(f"Error creando thumbnail genérico: {str(e)}")
+            return None
+
     def extract_info(self, url):
         """Extraer información del video/playlist sin descargar"""
         try:
+            # LIMPIAR URL: Solo remover parámetros problemáticos, mantener list= si es playlist
+            # Para extract_info, mantener la URL completa para que yt-dlp pueda procesar playlists
+            clean_url = url
+
+            print(f"🔥 [EXTRACT] URL limpia para extract_info: {clean_url}")
+
             cmd = [
                 str(YT_DLP_EXE),
                 '--no-warnings',
                 '--no-download',
                 '--print-json',
                 '--ffmpeg-location', str(FFMPEG_EXE),
-                url
+                '--write-thumbnail',  # Forzar obtención de thumbnail
+                '--convert-thumbnails', 'jpg',  # Convertir thumbnail a JPG
+                clean_url
             ]
 
             result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=45)
@@ -221,7 +324,7 @@ class Downloader:
         import subprocess
         try:
             # Determinar opciones según tipo
-            download_path = get_download_path("video" if download_type in ["video", "playlist_mp4"] else "mp3", source_type)
+            download_path = get_download_path("video" if download_type in ["video", "video_mp4", "playlist_mp4"] else "mp3", source_type)
 
             cmd = [str(YT_DLP_EXE), '--no-warnings']
 
@@ -257,6 +360,27 @@ class Downloader:
                 result = subprocess.run(cmd, capture_output=True, text=True,
                                       encoding='utf-8', errors='replace', timeout=30)
 
+                print(f"🔥 [DOWNLOADER] Código de retorno: {result.returncode}")
+
+                # Debug detallado si hay error
+                if result.returncode != 0:
+                    print(f"🔥 [DOWNLOADER] ERROR: yt-dlp falló con código {result.returncode}")
+                    print(f"🔥 [DOWNLOADER] Comando completo: {' '.join(cmd)}")
+
+                    if result.stderr:
+                        stderr_lines = result.stderr.strip().split('\n')
+                        print(f"🔥 [DOWNLOADER] STDERR - Últimas líneas:")
+                        for line in stderr_lines[-5:]:
+                            if line.strip():
+                                print(f"  ❌ {line}")
+
+                    if result.stdout:
+                        stdout_lines = result.stdout.strip().split('\n')
+                        print(f"🔥 [DOWNLOADER] STDOUT - Últimas líneas:")
+                        for line in stdout_lines[-3:]:
+                            if line.strip():
+                                print(f"  📝 {line}")
+
                 # Log output
                 if result.stdout:
                     output_lines = result.stdout.strip().split('\n')
@@ -273,54 +397,42 @@ class Downloader:
                         print("🔥 [DOWNLOADER] Conexión OK, descargando portada...")
                         self.log("Conexión a internet detectada - descargando portada...")
                         # Pasar la info del video que ya tenemos en lugar de volver a extraerla
-                        self.apply_thumbnail_to_file(url, download_path, download_type, video_info)
+                        # Para aplicar thumbnail, usaremos el archivo que se descargue
+                        # Por ahora, no podemos saber el nombre exacto, así que pasaremos la URL y video_info
+                        # apply_thumbnail_to_file buscará el archivo después
+                        self.apply_thumbnail_to_file(url, None, download_type, video_info)
                         print("🔥 [DOWNLOADER] Portada procesada")
                     else:
                         print("🔥 [DOWNLOADER] Sin conexión, saltando portada")
                         self.log("Sin conexión a internet - omitiendo descarga de portada")
 
-                    # Normalizar tipo para BD
-                    db_type = 'mp3' if download_type.startswith('mp3') else 'video'
+                    # VERIFICAR que el archivo realmente existe antes de guardar en BD
+                    # En lugar de asumir el nombre, buscar el archivo descargado en el directorio
+                    expected_extension = 'mp3' if download_type.startswith('mp3') else 'mp4'
 
-                    # Usar la información del video que ya tenemos para guardar en BD
-                    print("🔥 [DOWNLOADER] Guardando info en BD...")
-                    if video_info and isinstance(video_info, dict):
-                        title = video_info.get('title', 'Video sin título')
-                        artist = video_info.get('uploader', 'Artista desconocido')
-                        # Construir file_path basado en el tipo de descarga
-                        file_path = str(download_path / f"{title}.{download_type.split('_')[0] if '_' in download_type else download_type}")
-                        print(f"🔥 [DOWNLOADER] Guardando en BD: {title[:30]}...")
-                        self.db.add_download(url, title, artist, db_type, source_type, file_path)
-                        print("🔥 [DOWNLOADER] Info guardada en BD")
+                    print(f"🔥 [DOWNLOADER] Buscando archivos con extensión: .{expected_extension}")
+
+                    # Buscar archivos con la extensión correcta en el directorio de descarga
+                    downloaded_files = list(download_path.glob(f"*.{expected_extension}"))
+
+                    if downloaded_files:
+                        # Tomar el archivo más reciente (último descargado)
+                        downloaded_file = max(downloaded_files, key=lambda f: f.stat().st_mtime)
+                        print(f"🔥 [DOWNLOADER] ✅ Archivo encontrado: {downloaded_file.name}")
+                        self.log(f"Archivo descargado encontrado: {downloaded_file.name}")
+
+                        # Usar el título del video_info si está disponible, sino extraer del nombre del archivo
+                        title = video_info.get('title', 'Video sin título') if video_info else downloaded_file.stem
+                        artist = video_info.get('uploader', 'Artista desconocido') if video_info else 'Artista desconocido'
+                        db_type = 'mp3' if expected_extension == 'mp3' else 'video'
+
+                        print("🔥 [DOWNLOADER] Guardando info en BD...")
+                        self.db.add_download(url, title, artist, db_type, source_type, str(downloaded_file))
+                        print("🔥 [DOWNLOADER] ✅ Info guardada en BD")
                     else:
-                        # Fallback: intentar extraer info básica
-                        print("🔥 [DOWNLOADER] Usando fallback para BD...")
-                        try:
-                            # Extraer solo lo mínimo necesario con timeout corto
-                            cmd = [str(YT_DLP_EXE), '--no-warnings', '--no-download', '--print-json', '--ffmpeg-location', str(FFMPEG_EXE), url]
-                            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=15)
-                            if result.returncode == 0 and result.stdout.strip():
-                                import json
-                                info = json.loads(result.stdout.strip())
-                                title = info.get('title', 'Video sin título')
-                                artist = info.get('uploader', 'Artista desconocido')
-                                file_path = str(download_path / f"{title}.{download_type.split('_')[0] if '_' in download_type else download_type}")
-                                print(f"🔥 [DOWNLOADER] Fallback guardado en BD: {title[:30]}...")
-                                self.db.add_download(url, title, artist, db_type, source_type, file_path)
-                            else:
-                                print("🔥 [DOWNLOADER] Fallback falló, guardando con título básico...")
-                                video_id = url.split('=')[-1][:10]
-                                title = f"Video {video_id}"
-                                artist = 'Artista desconocido'
-                                file_path = str(download_path / f"{title}.{download_type.split('_')[0] if '_' in download_type else download_type}")
-                                self.db.add_download(url, title, artist, db_type, source_type, file_path)
-                        except Exception as e:
-                            print(f"🔥 [DOWNLOADER] Error en fallback: {e}")
-                            video_id = url.split('=')[-1][:10]
-                            title = f"Video {video_id}"
-                            artist = 'Artista desconocido'
-                            file_path = str(download_path / f"{title}.{download_type.split('_')[0] if '_' in download_type else download_type}")
-                            self.db.add_download(url, title, artist, download_type, source_type, file_path)
+                        print(f"🔥 [DOWNLOADER] ❌ ERROR: Ningún archivo .{expected_extension} encontrado en {download_path}")
+                        self.log(f"ERROR: Archivo descargado no encontrado en {download_path}")
+                        return False  # Fallar si no se creó el archivo
                     print("🔥 [DOWNLOADER] Método retornando True")
                     return True
                 else:

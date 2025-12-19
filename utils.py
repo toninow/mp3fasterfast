@@ -1,64 +1,85 @@
-import sys
-import json
+#!/usr/bin/env python3
+"""
+Utilidades para MP3 FasterFast
+"""
 import os
 from pathlib import Path
 
-# Detectar si estamos en un ejecutable empaquetado o en desarrollo
-if getattr(sys, 'frozen', False):
-    BASE_DIR = Path(sys.executable).parent
-else:
-    BASE_DIR = Path(__file__).parent
+# Directorios base
+BASE_DIR = Path(__file__).parent
 
-# Rutas relativas
-CONFIG_FILE = BASE_DIR / "config.json"
+# Estructura organizada
 DATA_DIR = BASE_DIR / "data"
-DB_FILE = DATA_DIR / "downloads.db"
 DOWNLOADS_DIR = BASE_DIR / "downloads"
+BIN_DIR = BASE_DIR / "bin"
+
+# Subdirectorios de descargas
 MP3_DIR = DOWNLOADS_DIR / "MP3"
 VIDEOS_DIR = DOWNLOADS_DIR / "Videos"
 PLAYLISTS_DIR = DOWNLOADS_DIR / "Playlists"
-CHANNELS_DIR = DOWNLOADS_DIR / "Canales"
+CANALES_DIR = DOWNLOADS_DIR / "Canales"
 
-# Ejecutables externos
-YT_DLP_EXE = BASE_DIR / "yt-dlp.exe"
-FFMPEG_EXE = BASE_DIR / "ffmpeg.exe"
+# Archivos ejecutables (buscar en bin/ primero, luego en raíz)
+YT_DLP_EXE = BIN_DIR / "yt-dlp.exe"
+if not YT_DLP_EXE.exists():
+    YT_DLP_EXE = BASE_DIR / "yt-dlp.exe"
+
+FFMPEG_EXE = BIN_DIR / "ffmpeg.exe"
+if not FFMPEG_EXE.exists():
+    FFMPEG_EXE = BASE_DIR / "ffmpeg.exe"
+
+# Base de datos
+DB_FILE = DATA_DIR / "downloads.db"
 
 def ensure_directories():
     """Crear directorios necesarios si no existen"""
-    directories = [DATA_DIR, DOWNLOADS_DIR, MP3_DIR, VIDEOS_DIR, PLAYLISTS_DIR, CHANNELS_DIR]
+    directories = [DATA_DIR, DOWNLOADS_DIR, MP3_DIR]
     for directory in directories:
         directory.mkdir(parents=True, exist_ok=True)
 
-def load_config():
-    """Cargar configuración desde config.json"""
-    if CONFIG_FILE.exists():
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {"downloads_path": str(DOWNLOADS_DIR)}
+def get_download_path(audio_type="mp3", source_type="url"):
+    """Obtener ruta de descarga según tipo"""
+    base_path = DOWNLOADS_DIR
 
-def save_config(config):
-    """Guardar configuración en config.json"""
-    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-        json.dump(config, f, indent=4)
+    if audio_type in ["mp3", "mp3_320", "mp3_256", "mp3_192", "mp3_128"]:
+        return base_path / "MP3"
+    elif audio_type.startswith("video"):
+        return base_path / "Videos"
+    elif audio_type.startswith("playlist"):
+        return base_path / "Playlists"
+    else:
+        return base_path / "Canales"
 
 def validate_dependencies():
-    """Validar que existan los ejecutables necesarios"""
+    """Validar que las dependencias necesarias existan"""
+    dependencies = {
+        "yt-dlp": YT_DLP_EXE,
+        "ffmpeg": FFMPEG_EXE
+    }
+
     missing = []
-    if not YT_DLP_EXE.exists():
-        missing.append("yt-dlp.exe")
-    if not FFMPEG_EXE.exists():
-        missing.append("ffmpeg.exe")
+    for name, path in dependencies.items():
+        if not path.exists():
+            missing.append(name)
+
     return missing
 
-def get_download_path(download_type, source_type):
-    """Obtener ruta de descarga basada en tipo"""
-    if download_type == "mp3":
-        if source_type in ["canal", "playlist"]:
-            return PLAYLISTS_DIR if source_type == "playlist" else CHANNELS_DIR
-        else:
-            return MP3_DIR
-    else:  # video
-        if source_type in ["canal", "playlist"]:
-            return PLAYLISTS_DIR if source_type == "playlist" else CHANNELS_DIR
-        else:
-            return VIDEOS_DIR
+def load_config():
+    """Cargar configuración (placeholder)"""
+    return {
+        "quality": "Mejor",
+        "format": "MP3 (Audio)"
+    }
+
+def save_config(config):
+    """Guardar configuración (placeholder)"""
+    pass
+
+def check_internet_connection():
+    """Verificar conexión a internet"""
+    try:
+        import urllib.request
+        urllib.request.urlopen('http://www.google.com', timeout=5)
+        return True
+    except:
+        return False
